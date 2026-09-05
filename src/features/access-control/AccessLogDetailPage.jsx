@@ -239,13 +239,12 @@ export default function AccessLogDetailPage() {
             >
               Imprimir
             </button>
-            <button
-              type="button"
-              title="Edição de registro ainda não implementada"
-              className="cursor-not-allowed rounded-[10px] border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-400"
+            <Link
+              to={`/access-control/${id}/edit`}
+              className="rounded-[10px] border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
             >
               Editar Registro
-            </button>
+            </Link>
           </div>
         </div>
       )}

@@ -9,6 +9,11 @@ function byId(records) {
 
 // 1=Visitante, 2=Prestador, 3=Funcionário — gate_schema.sql / people.service.js.
 export const PERSON_TYPE_LABELS = { 1: 'Visitante', 2: 'Prestador', 3: 'Funcionário' }
+export const PERSON_TYPES = [
+  { value: 1, label: 'Visitante' },
+  { value: 2, label: 'Prestador' },
+  { value: 3, label: 'Funcionário' },
+]
 
 /**
  * Cadastros (people/vehicles/sectors/gates) são carregados uma vez só — servem

@@ -4,13 +4,7 @@ import SlideOver from '../../components/SlideOver'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { openPrintWindow, printReceipt } from './printReceipt'
-import { PERSON_TYPE_LABELS } from './useAccessControlData'
-
-const PERSON_TYPES = [
-  { value: 1, label: 'Visitante' },
-  { value: 2, label: 'Prestador' },
-  { value: 3, label: 'Funcionário' },
-]
+import { PERSON_TYPE_LABELS, PERSON_TYPES } from './useAccessControlData'
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
