@@ -110,6 +110,7 @@ export function enrichLog(log, lookups) {
     personType: person ? (PERSON_TYPE_LABELS[person.personType] ?? '—') : '—',
     visitedPersonName: visitedPerson?.name ?? null,
     vehiclePlate: vehicle?.licensePlate ?? null,
+    vehicleLabel: vehicle ? [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || null : null,
     sectorName: sector?.name ?? null,
     entryGateName: entryGate?.name ?? '—',
     exitGateName: exitGate?.name ?? null,

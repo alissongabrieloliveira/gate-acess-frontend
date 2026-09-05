@@ -2,8 +2,7 @@ import { Eye, LogOut, Plus, Printer, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TopBar from '../../components/TopBar'
-import { api } from '../../lib/api'
-import { getErrorMessage } from '../../lib/errors'
+import ExitDrawer from './ExitDrawer'
 import NewEntryDrawer from './NewEntryDrawer'
 import { enrichLog, PAGE_SIZE, useAccessControlData } from './useAccessControlData'
 import { printReceipt } from './printReceipt'
@@ -39,8 +38,7 @@ export default function AccessControlPage() {
   const [selectedGateId, setSelectedGateId] = useState('all')
   const [searchText, setSearchText] = useState('')
   const [isNewEntryOpen, setIsNewEntryOpen] = useState(false)
-  const [exitingId, setExitingId] = useState(null)
-  const [actionError, setActionError] = useState(null)
+  const [exitingLog, setExitingLog] = useState(null)
 
   const { lookups, lookupsError, counts, logs, pagination, isLoading, error, refetch } = useAccessControlData({
     status: statusFilter,
@@ -63,24 +61,6 @@ export default function AccessControlPage() {
   function changeFilter(key) {
     setStatusFilter(key)
     setPage(1)
-  }
-
-  async function handleExit(log) {
-    setActionError(null)
-    const exitGateId = selectedGateId !== 'all' ? Number(selectedGateId) : lookups.gatesList[0]?.id
-    if (!exitGateId) {
-      setActionError('Nenhum portão disponível para registrar a saída.')
-      return
-    }
-    setExitingId(log.id)
-    try {
-      await api.patch(`/access-logs/${log.id}/exit`, { exitGateId })
-      refetch()
-    } catch (err) {
-      setActionError(getErrorMessage(err, 'Não foi possível registrar a saída.'))
-    } finally {
-      setExitingId(null)
-    }
   }
 
   return (
@@ -137,7 +117,6 @@ export default function AccessControlPage() {
         </button>
       </div>
 
-      {actionError && <p className="text-sm text-red-600">{actionError}</p>}
       {(error || lookupsError) && (
         <p className="text-sm text-red-600">
           Não foi possível carregar os dados de controle de acessos. Tente novamente mais tarde.
@@ -195,9 +174,8 @@ export default function AccessControlPage() {
                     <button
                       type="button"
                       title="Registrar saída"
-                      disabled={exitingId === log.id}
-                      onClick={() => handleExit(log)}
-                      className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                      onClick={() => setExitingLog(log)}
+                      className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
                     >
                       <LogOut className="size-4 text-gray-600" strokeWidth={1.75} />
                     </button>
@@ -241,6 +219,26 @@ export default function AccessControlPage() {
           onCreated={() => {
             setIsNewEntryOpen(false)
             changeFilter('ACTIVE')
+            refetch()
+          }}
+        />
+      )}
+
+      {exitingLog && (
+        <ExitDrawer
+          logId={exitingLog.id}
+          status={exitingLog.status}
+          personName={exitingLog.personName}
+          personCpf={exitingLog.personCpf}
+          vehiclePlate={exitingLog.vehiclePlate}
+          vehicleLabel={exitingLog.vehicleLabel}
+          sectorName={exitingLog.sectorName}
+          visitedPersonName={exitingLog.visitedPersonName}
+          entryTime={exitingLog.entryTime}
+          defaultGateId={selectedGateId !== 'all' ? selectedGateId : lookups?.gatesList[0]?.id}
+          onClose={() => setExitingLog(null)}
+          onExited={() => {
+            setExitingLog(null)
             refetch()
           }}
         />

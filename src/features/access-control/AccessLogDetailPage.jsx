@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
-import { getErrorMessage } from '../../lib/errors'
+import ExitDrawer from './ExitDrawer'
 import { openPrintWindow, printReceipt } from './printReceipt'
 import { PERSON_TYPE_LABELS } from './useAccessControlData'
 import { useAccessLogDetail } from './useAccessLogDetail'
@@ -44,30 +44,11 @@ export default function AccessLogDetailPage() {
   const { isLoading, error, detail, refetch } = useAccessLogDetail(id)
   const [gatesList, setGatesList] = useState([])
   const [selectedGateId, setSelectedGateId] = useState('all')
-  const [actionError, setActionError] = useState(null)
-  const [isExiting, setIsExiting] = useState(false)
+  const [isExitDrawerOpen, setIsExitDrawerOpen] = useState(false)
 
   useEffect(() => {
     api.get('/gates', { params: { limit: 100 } }).then(({ data }) => setGatesList(data.data))
   }, [])
-
-  async function handleExit() {
-    setActionError(null)
-    const exitGateId = selectedGateId !== 'all' ? Number(selectedGateId) : gatesList[0]?.id
-    if (!exitGateId) {
-      setActionError('Nenhum portão disponível para registrar a saída.')
-      return
-    }
-    setIsExiting(true)
-    try {
-      await api.patch(`/access-logs/${id}/exit`, { exitGateId })
-      refetch()
-    } catch (err) {
-      setActionError(getErrorMessage(err, 'Não foi possível registrar a saída.'))
-    } finally {
-      setIsExiting(false)
-    }
-  }
 
   function handlePrint() {
     const printWindow = openPrintWindow()
@@ -219,17 +200,14 @@ export default function AccessLogDetailPage() {
             </div>
           </div>
 
-          {actionError && <p className="text-sm text-red-600">{actionError}</p>}
-
           <div className="flex items-center justify-end gap-3">
             {detail.log.status === 'ACTIVE' && (
               <button
                 type="button"
-                onClick={handleExit}
-                disabled={isExiting}
-                className="rounded-[10px] bg-brand px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+                onClick={() => setIsExitDrawerOpen(true)}
+                className="rounded-[10px] bg-brand px-4 py-2.5 text-sm font-bold text-white hover:opacity-90"
               >
-                {isExiting ? 'Registrando...' : 'Registrar Saída'}
+                Registrar Saída
               </button>
             )}
             <button
@@ -247,6 +225,26 @@ export default function AccessLogDetailPage() {
             </Link>
           </div>
         </div>
+      )}
+
+      {isExitDrawerOpen && detail && (
+        <ExitDrawer
+          logId={id}
+          status={detail.log.status}
+          personName={detail.person.name}
+          personCpf={detail.person.cpf}
+          vehiclePlate={detail.vehicle?.licensePlate}
+          vehicleLabel={[detail.vehicle?.brand, detail.vehicle?.model].filter(Boolean).join(' ') || null}
+          sectorName={detail.sector?.name}
+          visitedPersonName={detail.visitedPerson?.name}
+          entryTime={detail.log.entryTime}
+          defaultGateId={selectedGateId !== 'all' ? selectedGateId : gatesList[0]?.id}
+          onClose={() => setIsExitDrawerOpen(false)}
+          onExited={() => {
+            setIsExitDrawerOpen(false)
+            refetch()
+          }}
+        />
       )}
     </div>
   )
