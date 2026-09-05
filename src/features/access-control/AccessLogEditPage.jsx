@@ -7,8 +7,8 @@ import { getErrorMessage } from '../../lib/errors'
 import { PERSON_TYPES } from './useAccessControlData'
 import { useAccessLogDetail } from './useAccessLogDetail'
 
-const inputClass = 'h-11 w-full rounded-[10px] border border-gray-200 px-3.5 text-sm font-semibold text-ink focus:border-brand focus:outline-none'
-const readOnlyClass = 'h-11 w-full cursor-not-allowed rounded-[10px] border border-gray-200 bg-gray-50 px-3.5 text-sm font-semibold text-muted'
+const inputClass = 'h-10 w-full rounded-[10px] border border-gray-200 px-3.5 text-sm font-semibold text-ink focus:border-brand focus:outline-none'
+const readOnlyClass = 'h-10 w-full cursor-not-allowed rounded-[10px] border border-gray-200 bg-gray-50 px-3.5 text-sm font-semibold text-muted'
 const labelClass = 'text-[11px] font-semibold uppercase text-subtle'
 const READONLY_TITLE = 'Não é possível editar este dado — não existe endpoint de atualização para o registro de acesso em si, só para os cadastros de pessoa e veículo'
 
@@ -79,10 +79,10 @@ export default function AccessLogEditPage() {
   const hasVehicleSection = !!(detail && (detail.vehicle || detail.log.kmEntry != null || detail.log.kmExit != null))
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between py-2">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="text-[28px] font-bold text-ink">Editar Registro</h1>
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold text-ink">Editar Registro</h1>
           <div className="flex items-center gap-2 text-xs text-muted">
             <Link to={`/access-control/${id}`} className="font-medium hover:underline">
               Controle de Acessos
@@ -110,7 +110,10 @@ export default function AccessLogEditPage() {
       )}
 
       {detail && (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white px-6 pb-4 pt-5 shadow-sm">
+        <form
+          onSubmit={handleSubmit}
+          className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto rounded-xl border border-gray-200 bg-white px-6 pb-3 pt-3.5 shadow-sm"
+        >
           <div className="flex items-center gap-2.5">
             <p className="text-xl font-bold text-ink">{detail.person.name}</p>
             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800">Editando</span>
@@ -119,7 +122,7 @@ export default function AccessLogEditPage() {
 
           <hr className="border-gray-200" />
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             <SectionHeader number={1} icon={<User className="size-4 text-ink" strokeWidth={1.75} />} title="Identificação do Visitante" />
             <div className="flex gap-4">
               <div className="flex flex-1 flex-col gap-1">
@@ -153,9 +156,9 @@ export default function AccessLogEditPage() {
                 <p className={labelClass}>Foto do Visitante</p>
                 <div
                   title="Upload de foto ainda não suportado pelo backend"
-                  className="flex h-[50px] cursor-not-allowed flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-gray-50"
+                  className="flex h-10 cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 bg-gray-50"
                 >
-                  <Camera className="size-4 text-gray-500" strokeWidth={1.5} />
+                  <Camera className="size-3.5 text-gray-500" strokeWidth={1.5} />
                   <p className="text-[11px] text-gray-500">Clique para enviar</p>
                 </div>
               </div>
@@ -165,7 +168,7 @@ export default function AccessLogEditPage() {
           {hasVehicleSection && (
             <>
               <hr className="border-gray-200" />
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
                 <SectionHeader number={2} icon={<Car className="size-4 text-ink" strokeWidth={1.75} />} title="Veículo" />
                 {detail.vehicle && (
                   <div className="flex gap-4">
@@ -199,7 +202,7 @@ export default function AccessLogEditPage() {
 
           <hr className="border-gray-200" />
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             <SectionHeader
               number={hasVehicleSection ? 3 : 2}
               icon={<MapPin className="size-4 text-ink" strokeWidth={1.75} />}
@@ -223,7 +226,7 @@ export default function AccessLogEditPage() {
 
           <hr className="border-gray-200" />
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             <SectionHeader
               number={hasVehicleSection ? 4 : 3}
               icon={<Clock className="size-4 text-ink" strokeWidth={1.75} />}
@@ -247,7 +250,7 @@ export default function AccessLogEditPage() {
 
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
 
-          <div className="flex items-center justify-end gap-3">
+          <div className="mt-auto flex items-center justify-end gap-3 pt-2">
             <button
               type="submit"
               disabled={isSubmitting}

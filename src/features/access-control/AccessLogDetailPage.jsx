@@ -20,11 +20,11 @@ function formatDateTime(value) {
 function SectionHeader({ number, icon, title }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-xl bg-brand text-xs font-bold text-white">
+      <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-brand text-xs font-bold text-white">
         {number}
       </span>
       {icon}
-      <p className="text-[13px] font-bold text-ink">{title}</p>
+      <p className="text-sm font-bold text-ink">{title}</p>
     </div>
   )
 }
@@ -77,10 +77,10 @@ export default function AccessLogDetailPage() {
   const hasVehicleSection = !!(detail && (detail.vehicle || detail.log.kmEntry != null || detail.log.kmExit != null))
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between py-2">
-        <div className="flex flex-col gap-1.5">
-          <h1 className="text-[28px] font-bold text-ink">Detalhes do Registro</h1>
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold text-ink">Detalhes do Registro</h1>
           <div className="flex items-center gap-2 text-xs text-muted">
             <Link to="/access-control" className="font-medium hover:underline">
               Controle de Acessos
@@ -108,9 +108,9 @@ export default function AccessLogDetailPage() {
       )}
 
       {detail && (
-        <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white px-6 pb-4 pt-5 shadow-sm">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto rounded-xl border border-gray-200 bg-white px-6 pb-4 pt-4 shadow-sm">
           <div className="flex items-center gap-2.5">
-            <p className="text-xl font-bold text-ink">{detail.person.name}</p>
+            <p className="text-lg font-bold text-ink">{detail.person.name}</p>
             <span
               className={`rounded-full px-2.5 py-1 text-xs font-bold ${
                 (STATUS_BADGES[detail.log.status] ?? {}).className ?? 'bg-gray-100 text-gray-700'
@@ -130,20 +130,20 @@ export default function AccessLogDetailPage() {
               <Field label="CPF" value={detail.person.cpf} />
             </div>
             <div className="flex gap-4">
-              <div className="flex flex-1 flex-col gap-2">
+              <div className="flex flex-1 flex-col gap-1.5">
                 <p className="text-[11px] font-semibold uppercase text-subtle">Tipo de Pessoa</p>
                 <span className="w-fit rounded-lg bg-brand-50 px-3 py-1.5 text-[13px] font-semibold text-brand">
                   {PERSON_TYPE_LABELS[detail.person.personType] ?? '—'}
                 </span>
               </div>
-              <div className="flex flex-1 flex-col gap-2">
+              <div className="flex flex-1 flex-col gap-1.5">
                 <p className="text-[11px] font-semibold uppercase text-subtle">Foto do Visitante</p>
                 <div
                   title="Upload de foto ainda não suportado pelo backend"
-                  className="flex h-[59px] cursor-not-allowed flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-gray-50"
+                  className="flex h-14 cursor-not-allowed flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-gray-50"
                 >
-                  <Camera className="size-5 text-gray-500" strokeWidth={1.5} />
-                  <p className="text-xs text-gray-500">Clique para enviar</p>
+                  <Camera className="size-[18px] text-gray-500" strokeWidth={1.5} />
+                  <p className="text-[11px] text-gray-500">Clique para enviar</p>
                 </div>
               </div>
             </div>
@@ -155,7 +155,7 @@ export default function AccessLogDetailPage() {
           {hasVehicleSection && (
             <>
               <hr className="border-gray-200" />
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2.5">
                 <SectionHeader number={2} icon={<Car className="size-4 text-ink" strokeWidth={1.75} />} title="Veículo" />
                 {detail.vehicle && (
                   <div className="flex gap-4">
@@ -186,7 +186,7 @@ export default function AccessLogDetailPage() {
 
           <hr className="border-gray-200" />
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2.5">
             <SectionHeader number={hasVehicleSection ? 4 : 3} icon={<Clock className="size-4 text-ink" strokeWidth={1.75} />} title="Registro de Acesso" />
             <div className="flex gap-4">
               <Field label="Data de Entrada" value={`${formatDateTime(detail.log.entryTime)} — ${detail.entryGate.name}`} />
@@ -196,7 +196,7 @@ export default function AccessLogDetailPage() {
               />
             </div>
             <div className="flex gap-4">
-              <div className="flex flex-1 flex-col gap-2">
+              <div className="flex flex-1 flex-col gap-1.5">
                 <p className="text-[11px] font-semibold uppercase text-subtle">Status</p>
                 <span
                   className={`w-fit rounded-full px-2.5 py-1 text-[13px] font-bold ${
@@ -210,7 +210,7 @@ export default function AccessLogDetailPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3">
+          <div className="mt-auto flex items-center justify-end gap-3 pt-2">
             {detail.log.status === 'ACTIVE' && (
               <button
                 type="button"
