@@ -17,7 +17,16 @@ export function AuthProvider({ children }) {
 
   function applyToken(accessToken) {
     setAccessToken(accessToken)
-    setUser(decodeAccessToken(accessToken))
+    const decoded = decodeAccessToken(accessToken)
+    setUser(decoded)
+    // Access token só carrega userId/companyId/rules — nome/e-mail vêm à parte
+    // (fire-and-forget) pra não travar o login/refresh caso essa chamada falhe.
+    api
+      .get(`/users/${decoded.userId}`)
+      .then(({ data }) => {
+        setUser((current) => (current?.userId === decoded.userId ? { ...current, name: data.name } : current))
+      })
+      .catch(() => {})
   }
 
   function clearSession() {
