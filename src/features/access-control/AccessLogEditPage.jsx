@@ -74,6 +74,10 @@ export default function AccessLogEditPage() {
     }
   }
 
+  // KM de entrada/saída pertencem ao access_log em si, não ao veículo — um
+  // registro pode ter KM preenchido sem ter um veículo vinculado.
+  const hasVehicleSection = !!(detail && (detail.vehicle || detail.log.kmEntry != null || detail.log.kmExit != null))
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between py-2">
@@ -158,21 +162,23 @@ export default function AccessLogEditPage() {
             </div>
           </div>
 
-          {detail.vehicle && (
+          {hasVehicleSection && (
             <>
               <hr className="border-gray-200" />
               <div className="flex flex-col gap-3">
                 <SectionHeader number={2} icon={<Car className="size-4 text-ink" strokeWidth={1.75} />} title="Veículo" />
-                <div className="flex gap-4">
-                  <div className="flex flex-1 flex-col gap-1">
-                    <label className={labelClass}>Placa</label>
-                    <input value={plate} onChange={(e) => setPlate(e.target.value)} className={inputClass} />
+                {detail.vehicle && (
+                  <div className="flex gap-4">
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className={labelClass}>Placa</label>
+                      <input value={plate} onChange={(e) => setPlate(e.target.value)} className={inputClass} />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className={labelClass}>Marca / Modelo</label>
+                      <input value={brandModel} onChange={(e) => setBrandModel(e.target.value)} className={inputClass} />
+                    </div>
                   </div>
-                  <div className="flex flex-1 flex-col gap-1">
-                    <label className={labelClass}>Marca / Modelo</label>
-                    <input value={brandModel} onChange={(e) => setBrandModel(e.target.value)} className={inputClass} />
-                  </div>
-                </div>
+                )}
                 <div className="flex gap-4">
                   <div className="flex flex-1 flex-col gap-1">
                     <p className={labelClass}>KM de Entrada</p>
@@ -195,7 +201,7 @@ export default function AccessLogEditPage() {
 
           <div className="flex flex-col gap-3">
             <SectionHeader
-              number={detail.vehicle ? 3 : 2}
+              number={hasVehicleSection ? 3 : 2}
               icon={<MapPin className="size-4 text-ink" strokeWidth={1.75} />}
               title="Destino & Autorização"
             />
@@ -219,7 +225,7 @@ export default function AccessLogEditPage() {
 
           <div className="flex flex-col gap-3">
             <SectionHeader
-              number={detail.vehicle ? 4 : 3}
+              number={hasVehicleSection ? 4 : 3}
               icon={<Clock className="size-4 text-ink" strokeWidth={1.75} />}
               title="Registro de Acesso"
             />

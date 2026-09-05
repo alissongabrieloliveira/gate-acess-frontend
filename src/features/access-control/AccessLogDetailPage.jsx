@@ -71,6 +71,11 @@ export default function AccessLogDetailPage() {
     )
   }
 
+  // KM de entrada/saída pertencem ao access_log em si, não ao veículo — um
+  // registro pode ter KM preenchido sem ter um veículo vinculado (ex.: saída
+  // registrada com KM antes de o veículo ser cadastrado no sistema).
+  const hasVehicleSection = !!(detail && (detail.vehicle || detail.log.kmEntry != null || detail.log.kmExit != null))
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between py-2">
@@ -144,21 +149,26 @@ export default function AccessLogDetailPage() {
             </div>
           </div>
 
-          {detail.vehicle && (
+          {/* KM de entrada/saída pertencem ao access_log em si, não ao veículo —
+              um registro pode ter KM preenchido sem ter um veículo vinculado
+              (ex.: saída registrada com KM antes de o veículo ser cadastrado). */}
+          {hasVehicleSection && (
             <>
               <hr className="border-gray-200" />
               <div className="flex flex-col gap-3">
                 <SectionHeader number={2} icon={<Car className="size-4 text-ink" strokeWidth={1.75} />} title="Veículo" />
+                {detail.vehicle && (
+                  <div className="flex gap-4">
+                    <Field label="Placa" value={detail.vehicle.licensePlate} />
+                    <Field
+                      label="Marca / Modelo"
+                      value={[detail.vehicle.brand, detail.vehicle.model].filter(Boolean).join(' ') || '—'}
+                    />
+                  </div>
+                )}
                 <div className="flex gap-4">
-                  <Field label="Placa" value={detail.vehicle.licensePlate} />
-                  <Field
-                    label="Marca / Modelo"
-                    value={[detail.vehicle.brand, detail.vehicle.model].filter(Boolean).join(' ') || '—'}
-                  />
-                </div>
-                <div className="flex gap-4">
-                  <Field label="KM de Entrada" value={detail.log.isKmUnavailable ? 'Não disponível' : detail.log.kmEntry} />
-                  <div className="flex-1" />
+                  <Field label="KM de Entrada" value={detail.log.isKmUnavailable ? 'Não disponível' : detail.log.kmEntry ?? '—'} />
+                  <Field label="KM de Saída" value={detail.log.kmExit ?? (detail.log.exitTime ? '—' : '----')} />
                 </div>
               </div>
             </>
@@ -167,7 +177,7 @@ export default function AccessLogDetailPage() {
           <hr className="border-gray-200" />
 
           <div className="flex flex-col gap-2">
-            <SectionHeader number={detail.vehicle ? 3 : 2} icon={<MapPin className="size-4 text-ink" strokeWidth={1.75} />} title="Destino & Autorização" />
+            <SectionHeader number={hasVehicleSection ? 3 : 2} icon={<MapPin className="size-4 text-ink" strokeWidth={1.75} />} title="Destino & Autorização" />
             <div className="flex gap-4">
               <Field label="Setor de Destino" value={detail.sector?.name} />
               <Field label="Anfitrião" value={detail.visitedPerson?.name} />
@@ -177,7 +187,7 @@ export default function AccessLogDetailPage() {
           <hr className="border-gray-200" />
 
           <div className="flex flex-col gap-3">
-            <SectionHeader number={detail.vehicle ? 4 : 3} icon={<Clock className="size-4 text-ink" strokeWidth={1.75} />} title="Registro de Acesso" />
+            <SectionHeader number={hasVehicleSection ? 4 : 3} icon={<Clock className="size-4 text-ink" strokeWidth={1.75} />} title="Registro de Acesso" />
             <div className="flex gap-4">
               <Field label="Data de Entrada" value={`${formatDateTime(detail.log.entryTime)} — ${detail.entryGate.name}`} />
               <Field
