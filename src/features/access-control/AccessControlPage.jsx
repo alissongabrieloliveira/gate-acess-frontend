@@ -1,12 +1,12 @@
 import { Eye, LogOut, Plus, Printer, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import TopBar from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import NewEntryDrawer from './NewEntryDrawer'
 import { enrichLog, PAGE_SIZE, useAccessControlData } from './useAccessControlData'
 import { printReceipt } from './printReceipt'
-import ViewLogModal from './ViewLogModal'
 
 const STATUS_BADGES = {
   ACTIVE: { label: 'Ativo', className: 'bg-green-100 text-green-700' },
@@ -39,7 +39,6 @@ export default function AccessControlPage() {
   const [selectedGateId, setSelectedGateId] = useState('all')
   const [searchText, setSearchText] = useState('')
   const [isNewEntryOpen, setIsNewEntryOpen] = useState(false)
-  const [viewingLog, setViewingLog] = useState(null)
   const [exitingId, setExitingId] = useState(null)
   const [actionError, setActionError] = useState(null)
 
@@ -177,14 +176,13 @@ export default function AccessControlPage() {
                   <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
                 </div>
                 <div className="flex flex-1 items-center justify-center gap-2">
-                  <button
-                    type="button"
+                  <Link
+                    to={`/access-control/${log.id}`}
                     title="Ver detalhes"
-                    onClick={() => setViewingLog(log)}
                     className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
                   >
                     <Eye className="size-4 text-gray-600" strokeWidth={1.75} />
-                  </button>
+                  </Link>
                   <button
                     type="button"
                     title="Imprimir recibo"
@@ -247,8 +245,6 @@ export default function AccessControlPage() {
           }}
         />
       )}
-
-      {viewingLog && <ViewLogModal log={viewingLog} onClose={() => setViewingLog(null)} />}
     </div>
   )
 }

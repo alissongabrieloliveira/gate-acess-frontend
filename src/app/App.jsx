@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../components/Layout'
 import AccessControlPage from '../features/access-control/AccessControlPage'
+import AccessLogDetailPage from '../features/access-control/AccessLogDetailPage'
 import ForgotPasswordPage from '../features/auth/ForgotPasswordPage'
 import LoginPage from '../features/auth/LoginPage'
 import ControlPostsPage from '../features/control-posts/ControlPostsPage'
@@ -26,6 +27,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/access-control" element={<AccessControlPage />} />
+              <Route path="/access-control/:id" element={<AccessLogDetailPage />} />
               <Route path="/fleet" element={<FleetPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/people" element={<PeoplePage />} />
