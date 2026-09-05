@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import TopBar from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import NewEntryModal from './NewEntryModal'
+import NewEntryDrawer from './NewEntryDrawer'
 import { enrichLog, PAGE_SIZE, useAccessControlData } from './useAccessControlData'
 import { printReceipt } from './printReceipt'
 import ViewLogModal from './ViewLogModal'
@@ -236,7 +236,7 @@ export default function AccessControlPage() {
       </div>
 
       {isNewEntryOpen && lookups && (
-        <NewEntryModal
+        <NewEntryDrawer
           lookups={lookups}
           defaultGateId={selectedGateId !== 'all' ? selectedGateId : undefined}
           onClose={() => setIsNewEntryOpen(false)}

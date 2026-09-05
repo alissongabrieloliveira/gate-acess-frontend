@@ -80,9 +80,13 @@ export function useAccessControlData({ status, page }) {
   }, [loadLogs])
 
   const refetch = useCallback(() => {
+    // Recarrega os lookups também — sem isso, uma pessoa/veículo criado na
+    // hora (via NewEntryDrawer) não aparece resolvido na tabela até um reload
+    // de página inteira, já que o mapa id->registro só era buscado uma vez.
+    loadLookups()
     loadLogs()
     loadCounts()
-  }, [loadLogs, loadCounts])
+  }, [loadLookups, loadLogs, loadCounts])
 
   return { lookups, lookupsError, counts, ...logsState, refetch }
 }

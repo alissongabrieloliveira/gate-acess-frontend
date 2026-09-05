@@ -5,8 +5,13 @@ function formatDateTime(value) {
 
 // Sem endpoint de recibo/PDF no backend — monta um recibo simples no cliente e
 // abre o diálogo de impressão nativo do navegador.
-export function printReceipt(log) {
-  const printWindow = window.open('', '_blank', 'width=420,height=600')
+//
+// `existingWindow` permite passar uma janela já aberta de forma síncrona
+// (ver openPrintWindow) — chamar window.open() depois de qualquer `await` faz
+// o navegador não reconhecer mais a ação como resultado direto de um clique
+// do usuário, e o pop-up é bloqueado silenciosamente.
+export function printReceipt(log, existingWindow) {
+  const printWindow = existingWindow ?? window.open('', '_blank', 'width=420,height=600')
   if (!printWindow) return
 
   printWindow.document.write(`
@@ -41,4 +46,11 @@ export function printReceipt(log) {
   printWindow.document.close()
   printWindow.focus()
   printWindow.print()
+}
+
+// Reserva a janela de impressão de forma síncrona, no mesmo tick do clique
+// que disparou a submissão — antes de qualquer `await` no handler. Retorna
+// `null` se o navegador bloquear mesmo assim (ex.: bloqueador mais agressivo).
+export function openPrintWindow() {
+  return window.open('', '_blank', 'width=420,height=600')
 }
