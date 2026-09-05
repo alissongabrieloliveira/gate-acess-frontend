@@ -1,10 +1,254 @@
+import { Eye, LogOut, Plus, Printer, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import TopBar from '../../components/TopBar'
+import { api } from '../../lib/api'
+import { getErrorMessage } from '../../lib/errors'
+import NewEntryModal from './NewEntryModal'
+import { enrichLog, PAGE_SIZE, useAccessControlData } from './useAccessControlData'
+import { printReceipt } from './printReceipt'
+import ViewLogModal from './ViewLogModal'
+
+const STATUS_BADGES = {
+  ACTIVE: { label: 'Ativo', className: 'bg-green-100 text-green-700' },
+  FINISHED: { label: 'Finalizado', className: 'bg-gray-100 text-gray-600' },
+}
+
+const FILTERS = [
+  { key: 'ACTIVE', label: 'Dentro da Empresa' },
+  { key: 'FINISHED', label: 'Finalizado' },
+  { key: null, label: 'Todos' },
+]
+
+function formatDateTime(value) {
+  if (!value) return '----'
+  const date = new Date(value)
+  const today = new Date()
+  const isToday = date.toDateString() === today.toDateString()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const isYesterday = date.toDateString() === yesterday.toDateString()
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (isToday) return `Hoje, ${time}`
+  if (isYesterday) return `Ontem, ${time}`
+  return `${date.toLocaleDateString('pt-BR')}, ${time}`
+}
+
 export default function AccessControlPage() {
+  const [statusFilter, setStatusFilter] = useState('ACTIVE')
+  const [page, setPage] = useState(1)
+  const [selectedGateId, setSelectedGateId] = useState('all')
+  const [searchText, setSearchText] = useState('')
+  const [isNewEntryOpen, setIsNewEntryOpen] = useState(false)
+  const [viewingLog, setViewingLog] = useState(null)
+  const [exitingId, setExitingId] = useState(null)
+  const [actionError, setActionError] = useState(null)
+
+  const { lookups, lookupsError, counts, logs, pagination, isLoading, error, refetch } = useAccessControlData({
+    status: statusFilter,
+    page,
+  })
+
+  const enrichedLogs = useMemo(() => {
+    if (!lookups) return []
+    const rows = logs.map((log) => enrichLog(log, lookups))
+    if (!searchText.trim()) return rows
+    const term = searchText.trim().toLowerCase()
+    return rows.filter(
+      (row) =>
+        row.personName.toLowerCase().includes(term) ||
+        row.personCpf?.toLowerCase().includes(term) ||
+        row.vehiclePlate?.toLowerCase().includes(term),
+    )
+  }, [logs, lookups, searchText])
+
+  function changeFilter(key) {
+    setStatusFilter(key)
+    setPage(1)
+  }
+
+  async function handleExit(log) {
+    setActionError(null)
+    const exitGateId = selectedGateId !== 'all' ? Number(selectedGateId) : lookups.gatesList[0]?.id
+    if (!exitGateId) {
+      setActionError('Nenhum portão disponível para registrar a saída.')
+      return
+    }
+    setExitingId(log.id)
+    try {
+      await api.patch(`/access-logs/${log.id}/exit`, { exitGateId })
+      refetch()
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Não foi possível registrar a saída.'))
+    } finally {
+      setExitingId(null)
+    }
+  }
+
   return (
-    <div>
-      <h1 className="text-lg font-semibold text-slate-800">Controle de Acesso</h1>
-      <p className="mt-2 text-sm text-slate-500">
-        Entrada e saída de visitantes e prestadores — em construção.
-      </p>
+    <div className="flex flex-col gap-6">
+      <TopBar
+        title="Controle de Acessos"
+        gates={lookups?.gatesList ?? []}
+        selectedGateId={selectedGateId}
+        onGateChange={setSelectedGateId}
+      />
+
+      <div className="flex items-center gap-3">
+        <div className="flex w-[280px] items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm">
+          <Search className="size-4 shrink-0 text-subtle" strokeWidth={2} />
+          <input
+            type="text"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Buscar por CPF, Nome ou Placa"
+            className="w-full text-sm text-ink placeholder:text-subtle focus:outline-none"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          {FILTERS.map((filter) => {
+            const isActive = statusFilter === filter.key
+            const count = filter.key === 'ACTIVE' ? counts.active : filter.key === 'FINISHED' ? counts.finished : counts.total
+            return (
+              <button
+                key={filter.label}
+                type="button"
+                onClick={() => changeFilter(filter.key)}
+                className={`rounded-[10px] px-3.5 py-2 text-[13px] font-semibold ${
+                  isActive ? 'bg-brand text-brand-50' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {filter.label}
+                {count !== null && ` (${count})`}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex-1" />
+
+        <button
+          type="button"
+          onClick={() => setIsNewEntryOpen(true)}
+          disabled={!lookups}
+          className="flex items-center gap-1.5 rounded-[10px] bg-brand px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+        >
+          <Plus className="size-4" strokeWidth={2.5} />
+          Registrar Nova Entrada
+        </button>
+      </div>
+
+      {actionError && <p className="text-sm text-red-600">{actionError}</p>}
+      {(error || lookupsError) && (
+        <p className="text-sm text-red-600">
+          Não foi possível carregar os dados de controle de acessos. Tente novamente mais tarde.
+        </p>
+      )}
+
+      <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
+          <p className="w-[220px]">Nome do Visitante / CPF</p>
+          <p className="w-[110px] text-center">Placa</p>
+          <p className="w-[160px] text-center">Anfitrião (Visitado)</p>
+          <p className="w-[110px] text-center">Entrada</p>
+          <p className="w-[110px] text-center">Saída</p>
+          <p className="w-[100px] text-center">Status</p>
+          <p className="flex-1 text-center">Ações</p>
+        </div>
+
+        {isLoading || !lookups ? (
+          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
+        ) : enrichedLogs.length === 0 ? (
+          <p className="px-5 py-8 text-sm text-muted">Nenhum acesso encontrado.</p>
+        ) : (
+          enrichedLogs.map((log) => {
+            const badge = STATUS_BADGES[log.status] ?? { label: log.status, className: 'bg-gray-100 text-gray-700' }
+            return (
+              <div key={log.id} className="flex items-center border-t border-gray-200 px-5 py-3.5">
+                <div className="flex w-[220px] flex-col gap-0.5">
+                  <p className="truncate text-sm font-semibold text-ink">{log.personName}</p>
+                  <p className="text-[11px] text-gray-500">{log.personCpf ?? '—'}</p>
+                </div>
+                <p className="w-[110px] text-center text-sm font-bold text-ink">{log.vehiclePlate ?? '—'}</p>
+                <p className="w-[160px] truncate text-center text-sm text-gray-700">{log.visitedPersonName ?? '—'}</p>
+                <p className="w-[110px] text-center text-sm text-gray-700">{formatDateTime(log.entryTime)}</p>
+                <p className="w-[110px] text-center text-sm text-subtle">{log.exitTime ? formatDateTime(log.exitTime) : '----'}</p>
+                <div className="flex w-[100px] items-center justify-center">
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
+                </div>
+                <div className="flex flex-1 items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    title="Ver detalhes"
+                    onClick={() => setViewingLog(log)}
+                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                  >
+                    <Eye className="size-4 text-gray-600" strokeWidth={1.75} />
+                  </button>
+                  <button
+                    type="button"
+                    title="Imprimir recibo"
+                    onClick={() => printReceipt(log)}
+                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                  >
+                    <Printer className="size-4 text-gray-600" strokeWidth={1.75} />
+                  </button>
+                  {log.status === 'ACTIVE' && (
+                    <button
+                      type="button"
+                      title="Registrar saída"
+                      disabled={exitingId === log.id}
+                      onClick={() => handleExit(log)}
+                      className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <LogOut className="size-4 text-gray-600" strokeWidth={1.75} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })
+        )}
+
+        <div className="flex items-center justify-between border-t border-gray-200 bg-canvas px-5 py-3.5">
+          <p className="text-[13px] text-muted">
+            {pagination ? `Mostrando ${enrichedLogs.length} de ${pagination.total} registros` : ''}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+              className="rounded-[10px] border border-gray-200 bg-white px-4 py-2 text-[13px] font-semibold text-gray-700 disabled:opacity-40"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              disabled={!pagination || page * PAGE_SIZE >= pagination.total}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded-[10px] bg-brand px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-40"
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {isNewEntryOpen && lookups && (
+        <NewEntryModal
+          lookups={lookups}
+          defaultGateId={selectedGateId !== 'all' ? selectedGateId : undefined}
+          onClose={() => setIsNewEntryOpen(false)}
+          onCreated={() => {
+            setIsNewEntryOpen(false)
+            changeFilter('ACTIVE')
+            refetch()
+          }}
+        />
+      )}
+
+      {viewingLog && <ViewLogModal log={viewingLog} onClose={() => setViewingLog(null)} />}
     </div>
   )
 }
