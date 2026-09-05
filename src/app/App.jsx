@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../components/Layout'
 import AccessControlPage from '../features/access-control/AccessControlPage'
 import AdminPage from '../features/admin/AdminPage'
+import ForgotPasswordPage from '../features/auth/ForgotPasswordPage'
 import LoginPage from '../features/auth/LoginPage'
 import FleetPage from '../features/fleet/FleetPage'
 import PeoplePage from '../features/people/PeoplePage'
@@ -15,6 +16,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
