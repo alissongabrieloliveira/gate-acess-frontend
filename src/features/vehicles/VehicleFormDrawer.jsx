@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { Camera, Car, Upload } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
-import { api } from '../../lib/api'
+import { api, toAbsoluteUrl } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
 const labelClass = 'text-xs font-semibold text-gray-600'
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024 // mesmo limite do multer no backend
 
 function StepBadge({ number }) {
   return (
@@ -22,15 +24,57 @@ function StepBadge({ number }) {
  * cadastra veículo sem perguntar o tipo e deixa o backend usar o default).
  */
 export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
-  const isEditing = !!vehicle
   const [licensePlate, setLicensePlate] = useState(vehicle?.licensePlate ?? '')
   const [brand, setBrand] = useState(vehicle?.brand ?? '')
   const [model, setModel] = useState(vehicle?.model ?? '')
   const [color, setColor] = useState(vehicle?.color ?? '')
+  const [photoFile, setPhotoFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(toAbsoluteUrl(vehicle?.photoUrl))
+  const [photoError, setPhotoError] = useState(null)
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // POST /vehicles cria o registro (sem foto ainda) — se o upload da foto
+  // falhar em seguida, o veículo já existe. Guardamos o id aqui pra um novo
+  // clique em "Salvar" virar um PUT + reenvio só da foto, em vez de tentar
+  // criar o mesmo veículo de novo (violaria a unicidade de placa).
+  const [createdVehicleId, setCreatedVehicleId] = useState(null)
 
+  const cameraInputRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const blobUrlRef = useRef(null)
+
+  useEffect(
+    () => () => {
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+    },
+    [],
+  )
+
+  const editingId = vehicle?.id ?? createdVehicleId
+  const isEditing = !!vehicle
   const canSubmit = licensePlate.trim().length > 0
+
+  function handlePhotoChange(event) {
+    const file = event.target.files?.[0]
+    event.target.value = '' // permite escolher o mesmo arquivo de novo depois
+    if (!file) return
+
+    setPhotoError(null)
+    if (!file.type.startsWith('image/')) {
+      setPhotoError('Selecione um arquivo de imagem.')
+      return
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhotoError('A imagem deve ter no máximo 5MB.')
+      return
+    }
+
+    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+    const url = URL.createObjectURL(file)
+    blobUrlRef.current = url
+    setPhotoFile(file)
+    setPreviewUrl(url)
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -39,6 +83,7 @@ export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
       setError('Placa é obrigatória.')
       return
     }
+
     setIsSubmitting(true)
     try {
       const payload = {
@@ -47,11 +92,22 @@ export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
         model: model.trim() || undefined,
         color: color.trim() || undefined,
       }
-      if (isEditing) {
-        await api.put(`/vehicles/${vehicle.id}`, payload)
+
+      let savedId = editingId
+      if (editingId) {
+        await api.put(`/vehicles/${editingId}`, payload)
       } else {
-        await api.post('/vehicles', payload)
+        const { data } = await api.post('/vehicles', payload)
+        savedId = data.id
+        setCreatedVehicleId(savedId)
       }
+
+      if (photoFile) {
+        const formData = new FormData()
+        formData.append('photo', photoFile)
+        await api.post(`/vehicles/${savedId}/photo`, formData)
+      }
+
       onSaved()
     } catch (err) {
       setError(getErrorMessage(err, 'Não foi possível salvar o veículo.'))
@@ -136,6 +192,50 @@ export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
               placeholder="Prata"
               className={inputClass}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Foto do Veículo</label>
+            <div className="flex items-center gap-3">
+              <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                {previewUrl ? (
+                  <img src={previewUrl} alt="Foto do veículo" className="size-full object-cover" />
+                ) : (
+                  <Car className="size-6 text-gray-400" strokeWidth={1.5} />
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <Camera className="size-3.5" strokeWidth={1.75} />
+                  Tirar Foto
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  <Upload className="size-3.5" strokeWidth={1.75} />
+                  Anexar Foto
+                </button>
+              </div>
+            </div>
+            {/* capture="environment" abre a câmera direto em celular/tablet; sem
+                o atributo, o mesmo input vira um seletor de arquivo comum (galeria) —
+                dois inputs ocultos pra oferecer as duas ações separadamente. */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoChange}
+              className="hidden"
+            />
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
+            {photoError && <p className="text-xs text-red-600">{photoError}</p>}
           </div>
         </div>
 

@@ -2,6 +2,18 @@ import axios from 'axios'
 
 const baseURL = import.meta.env.VITE_API_URL ?? 'http://localhost:3333/api/v1'
 
+// Arquivos enviados (fotos de veículo etc.) são servidos como estático fora
+// do prefixo /api/v1 (ver backend/src/app.js) — origem sem esse sufixo.
+export const apiOrigin = baseURL.replace(/\/api\/v1\/?$/, '')
+
+// As URLs de foto que vêm do backend (`vehicle.photoUrl`) são caminhos
+// relativos como "/uploads/vehicles/arquivo.jpg" — precisam da origem da API
+// na frente pra virar um <img src> de verdade.
+export function toAbsoluteUrl(path) {
+  if (!path) return null
+  return `${apiOrigin}${path}`
+}
+
 export const api = axios.create({
   baseURL,
   withCredentials: true, // envia o cookie httpOnly do refresh token
