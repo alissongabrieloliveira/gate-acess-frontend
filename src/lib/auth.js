@@ -54,8 +54,16 @@ export function AuthProvider({ children }) {
     clearSession()
   }
 
+  // Usado pela tela de Configurações depois de salvar o próprio perfil, pra
+  // sidebar/topbar refletirem o nome novo sem precisar de reload de página.
+  async function refreshUser() {
+    if (!user) return
+    const { data } = await api.get(`/users/${user.userId}`)
+    setUser((current) => (current ? { ...current, name: data.name } : current))
+  }
+
   const value = useMemo(
-    () => ({ user, isAuthenticated: !!user, isLoading, login, logout }),
+    () => ({ user, isAuthenticated: !!user, isLoading, login, logout, refreshUser }),
     [user, isLoading],
   )
 
