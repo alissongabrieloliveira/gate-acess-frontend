@@ -86,6 +86,7 @@ export default function VehiclesPage() {
     return vehicles.filter(
       (vehicle) =>
         vehicle.licensePlate?.toLowerCase().includes(term) ||
+        vehicle.identificationCode?.toLowerCase().includes(term) ||
         vehicle.brand?.toLowerCase().includes(term) ||
         vehicle.model?.toLowerCase().includes(term),
     )
@@ -115,7 +116,7 @@ export default function VehiclesPage() {
             type="text"
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Buscar por placa, marca ou modelo"
+            placeholder="Buscar por placa, identificação, marca ou modelo"
             className="w-full text-sm text-ink placeholder:text-subtle focus:outline-none"
           />
         </div>
@@ -141,6 +142,7 @@ export default function VehiclesPage() {
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="flex bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
           <p className="w-[140px]">Placa</p>
+          <p className="w-[130px]">Identificação</p>
           <p className="flex-1">Marca / Modelo</p>
           <p className="w-[140px]">Cor</p>
           <p className="w-[140px]">Status</p>
@@ -155,6 +157,7 @@ export default function VehiclesPage() {
           filteredVehicles.map((vehicle) => (
             <div key={vehicle.id} className="flex items-center border-t border-gray-200 px-5 py-3.5">
               <p className="w-[140px] text-sm font-bold text-ink">{vehicle.licensePlate}</p>
+              <p className="w-[130px] text-sm text-gray-700">{vehicle.identificationCode ?? '—'}</p>
               <p className="flex-1 truncate text-sm text-gray-700">
                 {[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || '—'}
               </p>

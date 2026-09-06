@@ -28,6 +28,7 @@ function StepBadge({ number }) {
 export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
   const [licensePlate, setLicensePlate] = useState(vehicle?.licensePlate ?? '')
   const [vehicleType, setVehicleType] = useState(vehicle?.vehicleType ?? VEHICLE_TYPES[0].value)
+  const [identificationCode, setIdentificationCode] = useState(vehicle?.identificationCode ?? '')
   const [brand, setBrand] = useState(vehicle?.brand ?? '')
   const [model, setModel] = useState(vehicle?.model ?? '')
   const [color, setColor] = useState(vehicle?.color ?? '')
@@ -92,6 +93,7 @@ export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
       const payload = {
         licensePlate,
         vehicleType,
+        identificationCode: identificationCode.trim() || undefined,
         brand: brand.trim() || undefined,
         model: model.trim() || undefined,
         color: color.trim() || undefined,
@@ -180,6 +182,17 @@ export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>Identificação</label>
+            <input
+              type="text"
+              value={identificationCode}
+              onChange={(event) => setIdentificationCode(event.target.value)}
+              placeholder="Ex.: 701 (numeração interna da frota)"
+              className={inputClass}
+            />
           </div>
 
           <div className="flex gap-2">
