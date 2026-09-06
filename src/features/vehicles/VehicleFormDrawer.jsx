@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
 import { api, toAbsoluteUrl } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import { VEHICLE_TYPES } from './useVehiclesData'
+import { formatPlateInput, VEHICLE_TYPES } from './useVehiclesData'
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
@@ -26,7 +26,7 @@ function StepBadge({ number }) {
  * visitante que está entrando).
  */
 export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
-  const [licensePlate, setLicensePlate] = useState(vehicle?.licensePlate ?? '')
+  const [licensePlate, setLicensePlate] = useState(formatPlateInput(vehicle?.licensePlate))
   const [vehicleType, setVehicleType] = useState(vehicle?.vehicleType ?? VEHICLE_TYPES[0].value)
   const [identificationCode, setIdentificationCode] = useState(vehicle?.identificationCode ?? '')
   const [brand, setBrand] = useState(vehicle?.brand ?? '')
@@ -125,7 +125,7 @@ export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
   return (
     <SlideOver
       title={isEditing ? 'Editar Veículo' : 'Novo Veículo'}
-      subtitle={isEditing ? `Placa ${vehicle.licensePlate}` : 'Cadastre um veículo de visitante ou da frota.'}
+      subtitle={isEditing ? `Placa ${formatPlateInput(vehicle.licensePlate)}` : 'Cadastre um veículo de visitante ou da frota.'}
       onClose={onClose}
       footer={
         <>
@@ -160,8 +160,8 @@ export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
               type="text"
               required
               value={licensePlate}
-              onChange={(event) => setLicensePlate(event.target.value)}
-              placeholder="ABC1D23"
+              onChange={(event) => setLicensePlate(formatPlateInput(event.target.value))}
+              placeholder="ABC-1D23"
               className={inputClass}
             />
           </div>

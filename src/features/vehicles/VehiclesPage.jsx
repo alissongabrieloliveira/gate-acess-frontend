@@ -3,8 +3,19 @@ import { useMemo, useState } from 'react'
 import Modal from '../../components/Modal'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import { PAGE_SIZE, useVehiclesData } from './useVehiclesData'
+import { formatPlateInput, PAGE_SIZE, useVehiclesData } from './useVehiclesData'
 import VehicleFormDrawer from './VehicleFormDrawer'
+
+function formatDate(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 function BlockVehicleModal({ vehicle, onClose, onBlocked }) {
   const [reason, setReason] = useState('')
@@ -31,8 +42,8 @@ function BlockVehicleModal({ vehicle, onClose, onBlocked }) {
   return (
     <Modal title="Bloquear Veículo" onClose={onClose}>
       <p className="text-sm text-muted">
-        A placa <span className="font-semibold text-ink">{vehicle.licensePlate}</span> será bloqueada e impedida de
-        novos acessos.
+        A placa <span className="font-semibold text-ink">{formatPlateInput(vehicle.licensePlate)}</span> será
+        bloqueada e impedida de novos acessos.
       </p>
       <div className="mt-4 flex flex-col gap-1.5">
         <label className="text-[11px] font-semibold uppercase text-subtle">Motivo do Bloqueio</label>
@@ -83,9 +94,13 @@ export default function VehiclesPage() {
   const filteredVehicles = useMemo(() => {
     if (!searchText.trim()) return vehicles
     const term = searchText.trim().toLowerCase()
+    // Placa é salva sem traço no banco — remove o traço também do termo
+    // buscado, senão digitar "ABC-1116" (como a tela mostra) não bateria
+    // com o "ABC1116" cru guardado em vehicle.licensePlate.
+    const plateTerm = term.replace(/-/g, '')
     return vehicles.filter(
       (vehicle) =>
-        vehicle.licensePlate?.toLowerCase().includes(term) ||
+        vehicle.licensePlate?.toLowerCase().includes(plateTerm) ||
         vehicle.identificationCode?.toLowerCase().includes(term) ||
         vehicle.brand?.toLowerCase().includes(term) ||
         vehicle.model?.toLowerCase().includes(term),
@@ -140,13 +155,16 @@ export default function VehiclesPage() {
       )}
 
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
-          <p className="w-[140px]">Placa</p>
-          <p className="w-[130px]">Identificação</p>
-          <p className="flex-1">Marca / Modelo</p>
-          <p className="w-[140px]">Cor</p>
-          <p className="w-[140px]">Status</p>
-          <p className="w-[100px] text-center">Ações</p>
+        <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
+          <p className="w-[130px]">Placa</p>
+          <p className="w-[110px]">Identificação</p>
+          <p className="w-[110px]">Marca</p>
+          <p className="w-[110px]">Modelo</p>
+          <p className="w-[90px]">Cor</p>
+          <p className="w-[140px]">Cadastrado em</p>
+          <p className="w-[140px]">Atualizado em</p>
+          <p className="w-[100px]">Status</p>
+          <p className="w-[90px] text-center">Ações</p>
         </div>
 
         {isLoading ? (
@@ -155,14 +173,15 @@ export default function VehiclesPage() {
           <p className="px-5 py-8 text-sm text-muted">Nenhum veículo encontrado.</p>
         ) : (
           filteredVehicles.map((vehicle) => (
-            <div key={vehicle.id} className="flex items-center border-t border-gray-200 px-5 py-3.5">
-              <p className="w-[140px] text-sm font-bold text-ink">{vehicle.licensePlate}</p>
-              <p className="w-[130px] text-sm text-gray-700">{vehicle.identificationCode ?? '—'}</p>
-              <p className="flex-1 truncate text-sm text-gray-700">
-                {[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || '—'}
-              </p>
-              <p className="w-[140px] text-sm text-gray-700">{vehicle.color ?? '—'}</p>
-              <div className="w-[140px]">
+            <div key={vehicle.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
+              <p className="w-[130px] text-sm font-bold text-ink">{formatPlateInput(vehicle.licensePlate)}</p>
+              <p className="w-[110px] text-sm text-gray-700">{vehicle.identificationCode ?? '—'}</p>
+              <p className="w-[110px] truncate text-sm text-gray-700">{vehicle.brand ?? '—'}</p>
+              <p className="w-[110px] truncate text-sm text-gray-700">{vehicle.model ?? '—'}</p>
+              <p className="w-[90px] truncate text-sm text-gray-700">{vehicle.color ?? '—'}</p>
+              <p className="w-[140px] text-[13px] text-gray-700">{formatDate(vehicle.createdAt)}</p>
+              <p className="w-[140px] text-[13px] text-gray-700">{formatDate(vehicle.updatedAt)}</p>
+              <div className="w-[100px]">
                 {vehicle.isBlocked ? (
                   <span
                     title={vehicle.blockReason ?? undefined}
@@ -174,7 +193,7 @@ export default function VehiclesPage() {
                   <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
                 )}
               </div>
-              <div className="flex w-[100px] items-center justify-center gap-2">
+              <div className="flex w-[90px] items-center justify-center gap-2">
                 <button
                   type="button"
                   title="Editar"

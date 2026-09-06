@@ -18,6 +18,24 @@ export const VEHICLE_TYPES = [
   { value: 4, label: 'Prestador de Serviço' },
 ]
 
+/**
+ * Formata a placa com traço pra exibição/digitação ("ABC1116" -> "ABC-1116",
+ * "ABC1A16" -> "ABC-1A16") — cobre tanto o formato antigo (4 dígitos) quanto
+ * o Mercosul (dígito-letra-dígito-dígito), já que a regra é só "traço depois
+ * do 3º caractere", sem validar o que vem depois. Idempotente (rodar de novo
+ * em cima de um valor já formatado devolve o mesmo resultado), por isso serve
+ * tanto pro onChange do campo quanto pra exibir o valor já salvo — o backend
+ * continua normalizando (maiúsculas, sem traço) antes de gravar no banco.
+ */
+export function formatPlateInput(value) {
+  const clean = String(value ?? '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 7)
+  if (clean.length <= 3) return clean
+  return `${clean.slice(0, 3)}-${clean.slice(3)}`
+}
+
 export function useVehiclesData({ page }) {
   const [state, setState] = useState({ isLoading: true, error: null, vehicles: [], pagination: null })
 
