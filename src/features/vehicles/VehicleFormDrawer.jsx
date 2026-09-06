@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
 import { api, toAbsoluteUrl } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
+import { VEHICLE_TYPES } from './useVehiclesData'
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
@@ -18,13 +19,15 @@ function StepBadge({ number }) {
 }
 
 /**
- * Cria ou edita um veículo (POST/PUT /vehicles). vehicleType não é exposto
- * aqui — o schema não define uma enumeração formal pra esse campo (mesma
- * decisão já tomada no NewEntryDrawer do Controle de Acessos, que também
- * cadastra veículo sem perguntar o tipo e deixa o backend usar o default).
+ * Cria ou edita um veículo (POST/PUT /vehicles). Novo veículo nasce
+ * "Visitante" por padrão (mesmo default do backend) — o NewEntryDrawer do
+ * Controle de Acessos continua cadastrando veículo sem perguntar o tipo,
+ * o que hoje faz sentido de verdade (veículo criado ali é sempre de
+ * visitante que está entrando).
  */
 export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
   const [licensePlate, setLicensePlate] = useState(vehicle?.licensePlate ?? '')
+  const [vehicleType, setVehicleType] = useState(vehicle?.vehicleType ?? VEHICLE_TYPES[0].value)
   const [brand, setBrand] = useState(vehicle?.brand ?? '')
   const [model, setModel] = useState(vehicle?.model ?? '')
   const [color, setColor] = useState(vehicle?.color ?? '')
@@ -88,6 +91,7 @@ export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
     try {
       const payload = {
         licensePlate,
+        vehicleType,
         brand: brand.trim() || undefined,
         model: model.trim() || undefined,
         color: color.trim() || undefined,
@@ -158,6 +162,24 @@ export default function VehicleFormDrawer({ vehicle, onClose, onSaved }) {
               placeholder="ABC1D23"
               className={inputClass}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass}>Tipo de Veículo</label>
+            <div className="flex flex-wrap gap-2">
+              {VEHICLE_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => setVehicleType(type.value)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                    vehicleType === type.value ? 'bg-brand-50 text-brand' : 'border border-gray-200 bg-white text-gray-500'
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex gap-2">
