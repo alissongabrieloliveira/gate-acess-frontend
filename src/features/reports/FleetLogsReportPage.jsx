@@ -54,6 +54,7 @@ function formatKmReturn(log) {
 
 const EXPORT_COLUMNS = [
   { label: 'Placa', value: (r) => (r.vehiclePlate ? formatPlateInput(r.vehiclePlate) : '—') },
+  { label: 'Identificação', value: (r) => r.vehicleIdentification ?? '—' },
   { label: 'Veículo', value: (r) => r.vehicleLabel ?? '—' },
   { label: 'Motorista', value: (r) => r.driverName ?? '—' },
   { label: 'Destino', value: (r) => r.destination ?? '—' },
@@ -182,6 +183,7 @@ export default function FleetLogsReportPage() {
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
           <p className="w-[160px]">Veículo</p>
+          <p className="w-[100px] text-center">Identificação</p>
           <p className="w-[130px] text-center">Motorista</p>
           <p className="w-[140px] text-center">Destino</p>
           <p className="w-[110px] text-center">Saída</p>
@@ -207,6 +209,7 @@ export default function FleetLogsReportPage() {
                   </p>
                   <p className="truncate text-[11px] text-gray-500">{log.vehicleLabel ?? '—'}</p>
                 </div>
+                <p className="w-[100px] truncate text-center text-sm text-gray-700">{log.vehicleIdentification ?? '—'}</p>
                 <p className="w-[130px] truncate text-center text-sm text-gray-700">{log.driverName ?? '—'}</p>
                 <p className="w-[140px] truncate text-center text-sm text-gray-700">{log.destination ?? '—'}</p>
                 <p className="w-[110px] text-center text-sm text-gray-700">{formatDateTime(log.departureTime)}</p>

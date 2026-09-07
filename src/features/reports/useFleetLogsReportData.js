@@ -23,6 +23,7 @@ export function enrichFleetLogReport(log, lookups) {
     ...log,
     vehiclePlate: vehicle?.licensePlate ?? null,
     vehicleLabel: vehicle ? [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || null : null,
+    vehicleIdentification: vehicle?.identificationCode ?? null,
     driverName: driver?.name ?? null,
   }
 }
