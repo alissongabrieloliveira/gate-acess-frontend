@@ -6,11 +6,15 @@ const baseURL = import.meta.env.VITE_API_URL ?? 'http://localhost:3333/api/v1'
 // do prefixo /api/v1 (ver backend/src/app.js) — origem sem esse sufixo.
 export const apiOrigin = baseURL.replace(/\/api\/v1\/?$/, '')
 
-// As URLs de foto que vêm do backend (`vehicle.photoUrl`) são caminhos
-// relativos como "/uploads/vehicles/arquivo.jpg" — precisam da origem da API
-// na frente pra virar um <img src> de verdade.
+// As URLs de foto que vêm do backend (`vehicle.photoUrl`) hoje são URLs
+// assinadas do Supabase Storage — já vêm absolutas
+// (https://xxx.supabase.co/storage/...), diferente do antigo caminho
+// relativo "/uploads/vehicles/arquivo.jpg" servido pelo próprio backend.
+// Devolve como está se já for absoluta; só prefixa com a origem da API pro
+// caso (legado) de ainda vir um caminho relativo.
 export function toAbsoluteUrl(path) {
   if (!path) return null
+  if (/^https?:\/\//.test(path)) return path
   return `${apiOrigin}${path}`
 }
 
