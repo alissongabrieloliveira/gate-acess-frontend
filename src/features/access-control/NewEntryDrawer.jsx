@@ -1,6 +1,7 @@
 import { Camera, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
+import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPlateInput } from '../../lib/format'
@@ -20,39 +21,6 @@ function StepBadge({ number, active }) {
     >
       {number}
     </span>
-  )
-}
-
-const MAX_SUGGESTIONS = 5
-
-/**
- * Dropdown de sugestões (busca inteligente) — filtra o mesmo array já
- * carregado como "lookups" (até 100 registros, mesma amostra parcial já
- * documentada em outras telas) direto no cliente, sem round-trip nenhum.
- * Mais rápido que esperar o debounce da busca exata por CPF/placa, e cobre
- * um caso que a busca exata nunca cobriu: procurar uma pessoa pelo nome.
- */
-function SuggestionsDropdown({ items, renderItem, onSelect }) {
-  if (items.length === 0) return null
-  return (
-    <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-52 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-      {items.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          // onMouseDown (não onClick) com preventDefault: impede o input de
-          // perder foco antes do clique ser processado — sem isso o dropdown
-          // desmonta no blur e o clique nunca chega a disparar.
-          onMouseDown={(event) => {
-            event.preventDefault()
-            onSelect(item)
-          }}
-          className="flex w-full flex-col gap-0.5 border-b border-gray-100 px-3 py-2 text-left last:border-b-0 hover:bg-gray-50"
-        >
-          {renderItem(item)}
-        </button>
-      ))}
-    </div>
   )
 }
 
