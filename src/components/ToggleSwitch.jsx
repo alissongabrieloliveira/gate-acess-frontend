@@ -10,8 +10,12 @@ export default function ToggleSwitch({ checked, onChange, label }) {
           checked ? 'bg-brand' : 'bg-line'
         }`}
       >
+        {/* left-0 explícito é necessário: botões nativos têm text-align:
+            center por padrão do navegador, e sem um `left` fixo o "auto"
+            da bolinha absoluta é resolvido a partir desse text-align (não
+            de 0), fazendo o translate-x ultrapassar o track quando ativado. */}
         <span
-          className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition-transform ${
+          className={`absolute left-0 top-0.5 size-4 rounded-full bg-white shadow transition-transform ${
             checked ? 'translate-x-[18px]' : 'translate-x-0.5'
           }`}
         />
