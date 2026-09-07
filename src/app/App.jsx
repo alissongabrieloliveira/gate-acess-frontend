@@ -8,6 +8,8 @@ import ForgotPasswordPage from '../features/auth/ForgotPasswordPage'
 import LoginPage from '../features/auth/LoginPage'
 import ControlPostsPage from '../features/control-posts/ControlPostsPage'
 import DashboardPage from '../features/dashboard/DashboardPage'
+import FleetLogDetailPage from '../features/fleet/FleetLogDetailPage'
+import FleetLogEditPage from '../features/fleet/FleetLogEditPage'
 import FleetPage from '../features/fleet/FleetPage'
 import PeoplePage from '../features/people/PeoplePage'
 import ReportsPage from '../features/reports/ReportsPage'
@@ -36,6 +38,8 @@ export default function App() {
               <Route path="/access-control/:id" element={<AccessLogDetailPage />} />
               <Route path="/access-control/:id/edit" element={<AccessLogEditPage />} />
               <Route path="/fleet" element={<FleetPage />} />
+              <Route path="/fleet/:id" element={<FleetLogDetailPage />} />
+              <Route path="/fleet/:id/edit" element={<FleetLogEditPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/people" element={<PeoplePage />} />
               <Route path="/users" element={<UsersPage />} />

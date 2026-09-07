@@ -1,5 +1,6 @@
-import { LogIn, Plus, Search } from 'lucide-react'
+import { Eye, LogIn, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import TopBar from '../../components/TopBar'
 import { formatPlateInput } from '../../lib/format'
 import DepartureDrawer from './DepartureDrawer'
@@ -141,6 +142,9 @@ export default function FleetPage() {
           <p className="w-[100px] text-center">Status</p>
           <p className="w-[90px] text-center">Ações</p>
         </div>
+        {/* w-[90px] cabe até 2 ícones (Ver Detalhes sempre, Registrar Retorno só
+            quando ON_TRIP) — mesma conta já usada em Controle de Acessos: 2×32px
+            + 8px de gap = 72px, com folga dentro dos 90px. */}
 
         {isLoading || !lookups ? (
           <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
@@ -167,6 +171,13 @@ export default function FleetPage() {
                   <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
                 </div>
                 <div className="flex w-[90px] items-center justify-center gap-2">
+                  <Link
+                    to={`/fleet/${log.id}`}
+                    title="Ver detalhes"
+                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                  >
+                    <Eye className="size-4 text-gray-600" strokeWidth={1.75} />
+                  </Link>
                   {log.status === 'ON_TRIP' && (
                     <button
                       type="button"

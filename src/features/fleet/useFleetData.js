@@ -3,6 +3,17 @@ import { api } from '../../lib/api'
 
 export const PAGE_SIZE = 8
 
+// 1=Visitante, 2=Prestador, 3=Funcionário — gate_schema.sql / people.service.js.
+// Usado pela tela de detalhes/edição do registro pra exibir/editar o tipo do
+// motorista (mesmas constantes já duplicadas em useAccessControlData.js —
+// critério já estabelecido no projeto, ver memoria.md).
+export const PERSON_TYPE_LABELS = { 1: 'Visitante', 2: 'Prestador', 3: 'Funcionário' }
+export const PERSON_TYPES = [
+  { value: 1, label: 'Visitante' },
+  { value: 2, label: 'Prestador' },
+  { value: 3, label: 'Funcionário' },
+]
+
 function byId(records) {
   return new Map(records.map((record) => [record.id, record]))
 }
