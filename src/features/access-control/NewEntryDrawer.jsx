@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
+import { formatCpf, formatPlateInput } from '../../lib/format'
 import { openPrintWindow, printReceipt } from './printReceipt'
 import { PERSON_TYPE_LABELS, PERSON_TYPES } from './useAccessControlData'
 
@@ -119,7 +120,11 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     try {
       let personId = existingPerson?.id
       if (!personId) {
-        const { data: newPerson } = await api.post('/people', { personType, name, cpf })
+        // Diferente da placa (normalizada no backend antes de gravar), o CPF
+        // de people é salvo exatamente como chega — manda só dígitos aqui pra
+        // não persistir a pontuação da máscara e quebrar a consistência com
+        // os registros existentes (sempre em dígitos crus).
+        const { data: newPerson } = await api.post('/people', { personType, name, cpf: cpf.replace(/\D/g, '') })
         personId = newPerson.id
       }
 
@@ -205,7 +210,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
               <input
                 type="text"
                 value={cpf}
-                onChange={(event) => setCpf(event.target.value)}
+                onChange={(event) => setCpf(formatCpf(event.target.value))}
                 placeholder="000.000.000-00"
                 className="w-full text-[13px] text-ink placeholder:text-gray-400 focus:outline-none"
               />
@@ -299,7 +304,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
                   <input
                     type="text"
                     value={plate}
-                    onChange={(event) => setPlate(event.target.value)}
+                    onChange={(event) => setPlate(formatPlateInput(event.target.value))}
                     placeholder="ABC-1234"
                     className={inputClass}
                   />

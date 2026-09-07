@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
 import { api, toAbsoluteUrl } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import { formatPlateInput, VEHICLE_TYPES } from './useVehiclesData'
+import { formatPlateInput } from '../../lib/format'
+import { VEHICLE_TYPES } from './useVehiclesData'
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'

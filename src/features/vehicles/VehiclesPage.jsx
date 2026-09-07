@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react'
 import Modal from '../../components/Modal'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import { formatPlateInput, PAGE_SIZE, useVehiclesData } from './useVehiclesData'
+import { formatPlateInput } from '../../lib/format'
+import { PAGE_SIZE, useVehiclesData } from './useVehiclesData'
 import VehicleFormDrawer from './VehicleFormDrawer'
 
 function formatDate(value) {

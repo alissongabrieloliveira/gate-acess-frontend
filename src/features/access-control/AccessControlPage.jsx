@@ -2,6 +2,7 @@ import { Eye, LogOut, Plus, Printer, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TopBar from '../../components/TopBar'
+import { formatCpf, formatPlateInput } from '../../lib/format'
 import ExitDrawer from './ExitDrawer'
 import NewEntryDrawer from './NewEntryDrawer'
 import { enrichLog, PAGE_SIZE, useAccessControlData } from './useAccessControlData'
@@ -50,11 +51,16 @@ export default function AccessControlPage() {
     const rows = logs.map((log) => enrichLog(log, lookups))
     if (!searchText.trim()) return rows
     const term = searchText.trim().toLowerCase()
+    // Placa e CPF são guardados sem pontuação — remove traço/pontos do termo
+    // buscado também, senão digitar "ABC-1234" ou "123.456.789-10" (como a
+    // tela mostra) não bateria com o valor cru guardado no registro.
+    const plateTerm = term.replace(/-/g, '')
+    const cpfTerm = term.replace(/[.\-]/g, '')
     return rows.filter(
       (row) =>
         row.personName.toLowerCase().includes(term) ||
-        row.personCpf?.toLowerCase().includes(term) ||
-        row.vehiclePlate?.toLowerCase().includes(term),
+        row.personCpf?.toLowerCase().includes(cpfTerm) ||
+        row.vehiclePlate?.toLowerCase().includes(plateTerm),
     )
   }, [logs, lookups, searchText])
 
@@ -145,9 +151,11 @@ export default function AccessControlPage() {
               <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
                 <div className="flex w-[220px] flex-col gap-0.5">
                   <p className="truncate text-sm font-semibold text-ink">{log.personName}</p>
-                  <p className="text-[11px] text-gray-500">{log.personCpf ?? '—'}</p>
+                  <p className="text-[11px] text-gray-500">{log.personCpf ? formatCpf(log.personCpf) : '—'}</p>
                 </div>
-                <p className="w-[110px] text-center text-sm font-bold text-ink">{log.vehiclePlate ?? '—'}</p>
+                <p className="w-[110px] text-center text-sm font-bold text-ink">
+                  {log.vehiclePlate ? formatPlateInput(log.vehiclePlate) : '—'}
+                </p>
                 <p className="w-[160px] truncate text-center text-sm text-gray-700">{log.visitedPersonName ?? '—'}</p>
                 <p className="w-[110px] text-center text-sm text-gray-700">{formatDateTime(log.entryTime)}</p>
                 <p className="w-[110px] text-center text-sm text-subtle">{log.exitTime ? formatDateTime(log.exitTime) : '----'}</p>
