@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 
-export const PAGE_SIZE = 15
+export const PAGE_SIZE = 8
 
 // Só as tabelas que realmente têm trigger de auditoria (trg_audit_*) — ver
 // migrations 20260903190500 a 20260903190900. `users`/`companies` não geram

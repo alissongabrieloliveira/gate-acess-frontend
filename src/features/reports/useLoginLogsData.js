@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 
-export const PAGE_SIZE = 15
+export const PAGE_SIZE = 8
 
 export const STATUS_OPTIONS = [
   { value: 'SUCCESS', label: 'Sucesso' },
