@@ -124,14 +124,14 @@ export default function AccessControlPage() {
       )}
 
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
+        <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
           <p className="w-[220px]">Nome do Visitante / CPF</p>
           <p className="w-[110px] text-center">Placa</p>
           <p className="w-[160px] text-center">Anfitrião (Visitado)</p>
           <p className="w-[110px] text-center">Entrada</p>
           <p className="w-[110px] text-center">Saída</p>
           <p className="w-[100px] text-center">Status</p>
-          <p className="flex-1 text-center">Ações</p>
+          <p className="w-[120px] text-center">Ações</p>
         </div>
 
         {isLoading || !lookups ? (
@@ -142,7 +142,7 @@ export default function AccessControlPage() {
           enrichedLogs.map((log) => {
             const badge = STATUS_BADGES[log.status] ?? { label: log.status, className: 'bg-gray-100 text-gray-700' }
             return (
-              <div key={log.id} className="flex items-center border-t border-gray-200 px-5 py-3.5">
+              <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
                 <div className="flex w-[220px] flex-col gap-0.5">
                   <p className="truncate text-sm font-semibold text-ink">{log.personName}</p>
                   <p className="text-[11px] text-gray-500">{log.personCpf ?? '—'}</p>
@@ -154,7 +154,7 @@ export default function AccessControlPage() {
                 <div className="flex w-[100px] items-center justify-center">
                   <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
                 </div>
-                <div className="flex flex-1 items-center justify-center gap-2">
+                <div className="flex w-[120px] items-center justify-center gap-2">
                   <Link
                     to={`/access-control/${log.id}`}
                     title="Ver detalhes"
