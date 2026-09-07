@@ -1,6 +1,6 @@
 import { Lock, Pencil, Plus, Search, Unlock } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import Modal from '../../components/Modal'
+import BlockReasonModal from '../../components/BlockReasonModal'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
@@ -16,68 +16,6 @@ function formatDate(value) {
     hour: '2-digit',
     minute: '2-digit',
   })
-}
-
-function BlockVehicleModal({ vehicle, onClose, onBlocked }) {
-  const [reason, setReason] = useState('')
-  const [error, setError] = useState(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  async function handleConfirm() {
-    setError(null)
-    if (!reason.trim()) {
-      setError('Informe o motivo do bloqueio.')
-      return
-    }
-    setIsSubmitting(true)
-    try {
-      await api.patch(`/vehicles/${vehicle.id}/block`, { isBlocked: true, reason: reason.trim() })
-      onBlocked()
-    } catch (err) {
-      setError(getErrorMessage(err, 'Não foi possível bloquear o veículo.'))
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <Modal title="Bloquear Veículo" onClose={onClose}>
-      <p className="text-sm text-muted">
-        A placa <span className="font-semibold text-ink">{formatPlateInput(vehicle.licensePlate)}</span> será
-        bloqueada e impedida de novos acessos.
-      </p>
-      <div className="mt-4 flex flex-col gap-1.5">
-        <label className="text-[11px] font-semibold uppercase text-subtle">Motivo do Bloqueio</label>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={3}
-          placeholder="Descreva o motivo do bloqueio..."
-          className="w-full resize-none rounded-[10px] border border-gray-200 px-3.5 py-2.5 text-sm text-ink placeholder:text-subtle focus:border-brand focus:outline-none"
-        />
-      </div>
-
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-
-      <div className="mt-4 flex items-center justify-end gap-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-[10px] border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-        >
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={isSubmitting}
-          className="rounded-[10px] bg-red-600 px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {isSubmitting ? 'Bloqueando...' : 'Confirmar Bloqueio'}
-        </button>
-      </div>
-    </Modal>
-  )
 }
 
 export default function VehiclesPage() {
@@ -274,10 +212,18 @@ export default function VehiclesPage() {
       )}
 
       {blockingVehicle && (
-        <BlockVehicleModal
-          vehicle={blockingVehicle}
+        <BlockReasonModal
+          title="Bloquear Veículo"
+          description={
+            <>
+              A placa <span className="font-semibold text-ink">{formatPlateInput(blockingVehicle.licensePlate)}</span> será
+              bloqueada e impedida de novos acessos.
+            </>
+          }
+          errorMessage="Não foi possível bloquear o veículo."
           onClose={() => setBlockingVehicle(null)}
-          onBlocked={() => {
+          onConfirm={async (reason) => {
+            await api.patch(`/vehicles/${blockingVehicle.id}/block`, { isBlocked: true, reason })
             setBlockingVehicle(null)
             refetch()
           }}

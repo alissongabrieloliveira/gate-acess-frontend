@@ -34,3 +34,44 @@ export function formatCpf(value) {
   if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`
 }
+
+/**
+ * Formata telefone pra exibição/digitação — 10 dígitos vira fixo
+ * ("(11) 1234-5678"), 11 dígitos vira celular ("(11) 91234-5678"). Igual ao
+ * CPF, o backend não normaliza `people.phone` (grava exatamente o que
+ * chega), então isso só formata pra exibição/máscara — o envio pro backend
+ * usa só os dígitos. Formata progressivamente: enquanto o usuário ainda não
+ * digitou o 11º dígito, assume o corte de fixo (4-4); ao digitar o 11º,
+ * reformata pro corte de celular (5-4) — comportamento padrão de máscara de
+ * telefone brasileira.
+ */
+export function formatPhone(value) {
+  const digits = String(value ?? '')
+    .replace(/\D/g, '')
+    .slice(0, 11)
+  if (digits.length === 0) return ''
+  if (digits.length <= 2) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+}
+
+/**
+ * Formata RG pra exibição/digitação no padrão mais comum ("12.345.678-9").
+ * O último caractere aceita dígito ou "X" (dígito verificador de alguns
+ * estados) — sem validação de formato por UF (RG não tem padrão nacional
+ * único), só uma máscara visual consistente com o resto do projeto. Mesma
+ * assimetria do CPF: o campo mostra formatado, o backend não normaliza
+ * `people.rg` (grava exatamente o que chega), então o envio usa só os
+ * caracteres crus (sem pontuação).
+ */
+export function formatRg(value) {
+  const raw = String(value ?? '')
+    .toUpperCase()
+    .replace(/[^0-9X]/g, '')
+    .slice(0, 9)
+  if (raw.length <= 2) return raw
+  if (raw.length <= 5) return `${raw.slice(0, 2)}.${raw.slice(2)}`
+  if (raw.length <= 8) return `${raw.slice(0, 2)}.${raw.slice(2, 5)}.${raw.slice(5)}`
+  return `${raw.slice(0, 2)}.${raw.slice(2, 5)}.${raw.slice(5, 8)}-${raw.slice(8)}`
+}
