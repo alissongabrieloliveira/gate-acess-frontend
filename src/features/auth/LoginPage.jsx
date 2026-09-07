@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import AuthLayout from '../../components/AuthLayout'
 import ToggleSwitch from '../../components/ToggleSwitch'
 import { useAuth } from '../../lib/auth'
+import { getErrorMessage } from '../../lib/errors'
 
 const REMEMBERED_EMAIL_KEY = 'portaria:rememberedEmail'
 
@@ -37,8 +38,13 @@ export default function LoginPage() {
         localStorage.removeItem(REMEMBERED_EMAIL_KEY)
       }
       navigate('/', { replace: true })
-    } catch {
-      setError('Credenciais inválidas.')
+    } catch (err) {
+      // Credenciais inválidas continua sendo o fallback genérico (não muda
+      // o comportamento anti-enumeração de e-mail já existente) — mas um
+      // 429 de rate limit tem mensagem própria vinda do backend, senão o
+      // usuário legítimo bloqueado veria "credenciais inválidas" sem
+      // entender o motivo real.
+      setError(getErrorMessage(err, 'Credenciais inválidas.'))
     } finally {
       setIsSubmitting(false)
     }
