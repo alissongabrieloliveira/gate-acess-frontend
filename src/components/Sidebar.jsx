@@ -4,7 +4,9 @@ import {
   DoorClosed,
   FileText,
   FolderOpen,
+  History,
   LayoutGrid,
+  LogIn,
   LogOut,
   Settings,
   Shield,
@@ -19,6 +21,7 @@ import { useAuth } from '../lib/auth'
 import { RULES } from '../lib/rules'
 
 const REGISTRY_PATHS = ['/vehicles', '/people', '/users', '/control-posts']
+const REPORTS_PATHS = ['/reports/audit-logs', '/reports/login-logs']
 
 const navItemClass = ({ isActive }) =>
   `flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm ${
@@ -35,6 +38,9 @@ export default function Sidebar() {
   const location = useLocation()
   const [registryOpen, setRegistryOpen] = useState(
     REGISTRY_PATHS.some((path) => location.pathname.startsWith(path)),
+  )
+  const [reportsOpen, setReportsOpen] = useState(
+    REPORTS_PATHS.some((path) => location.pathname.startsWith(path)),
   )
 
   const isAdmin = !!(user?.rules & RULES.ADMIN)
@@ -111,10 +117,38 @@ export default function Sidebar() {
             </div>
           )}
 
-          <NavLink to="/reports" className={navItemClass}>
-            <FileText className="size-[18px]" strokeWidth={2} />
-            Relatórios
-          </NavLink>
+          {/* Único relatório hoje (Auditoria/Login) é admin-only no backend
+              (authorize(RULES.ADMIN) em audit-logs.routes.js/login-logs.routes.js)
+              — item inteiro escondido de operadores, mesmo critério de Usuários
+              dentro de Cadastros. */}
+          {isAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => setReportsOpen((value) => !value)}
+                className="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+              >
+                <FileText className="size-[18px]" strokeWidth={2} />
+                <span className="flex-1 text-left">Relatórios</span>
+                <ChevronDown
+                  className={`size-3.5 transition-transform ${reportsOpen ? 'rotate-180' : ''}`}
+                  strokeWidth={2.25}
+                />
+              </button>
+              {reportsOpen && (
+                <div className="flex flex-col gap-0.5">
+                  <NavLink to="/reports/audit-logs" className={subNavItemClass}>
+                    <History className="size-[18px]" strokeWidth={1.75} />
+                    Auditoria
+                  </NavLink>
+                  <NavLink to="/reports/login-logs" className={subNavItemClass}>
+                    <LogIn className="size-[18px]" strokeWidth={1.75} />
+                    Login
+                  </NavLink>
+                </div>
+              )}
+            </>
+          )}
           <NavLink to="/settings" className={navItemClass}>
             <Settings className="size-[18px]" strokeWidth={2} />
             Configurações

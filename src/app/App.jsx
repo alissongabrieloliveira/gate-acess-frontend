@@ -12,7 +12,8 @@ import FleetLogDetailPage from '../features/fleet/FleetLogDetailPage'
 import FleetLogEditPage from '../features/fleet/FleetLogEditPage'
 import FleetPage from '../features/fleet/FleetPage'
 import PeoplePage from '../features/people/PeoplePage'
-import ReportsPage from '../features/reports/ReportsPage'
+import AuditLogsPage from '../features/reports/AuditLogsPage'
+import LoginLogsPage from '../features/reports/LoginLogsPage'
 import SettingsPage from '../features/settings/SettingsPage'
 import UsersPage from '../features/users/UsersPage'
 import VehiclesPage from '../features/vehicles/VehiclesPage'
@@ -44,7 +45,8 @@ export default function App() {
               <Route path="/people" element={<PeoplePage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/control-posts" element={<ControlPostsPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/reports/audit-logs" element={<AuditLogsPage />} />
+              <Route path="/reports/login-logs" element={<LoginLogsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Route>
