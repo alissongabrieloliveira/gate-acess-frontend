@@ -6,6 +6,7 @@ import AccessLogEditPage from '../features/access-control/AccessLogEditPage'
 import ChangePasswordPage from '../features/auth/ChangePasswordPage'
 import ForgotPasswordPage from '../features/auth/ForgotPasswordPage'
 import LoginPage from '../features/auth/LoginPage'
+import ResetPasswordPage from '../features/auth/ResetPasswordPage'
 import ControlPostsPage from '../features/control-posts/ControlPostsPage'
 import DashboardPage from '../features/dashboard/DashboardPage'
 import FleetLogDetailPage from '../features/fleet/FleetLogDetailPage'
@@ -30,6 +31,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           <Route element={<ProtectedRoute />}>
             {/* Fora do <Layout> de propósito — sem sidebar, mesma casca visual do
