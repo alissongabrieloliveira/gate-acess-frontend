@@ -1,5 +1,5 @@
 import { Eye, LogOut, Plus, Printer, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TopBar from '../../components/TopBar'
 import { formatCpf, formatPlateInput } from '../../lib/format'
@@ -38,31 +38,36 @@ export default function AccessControlPage() {
   const [page, setPage] = useState(1)
   const [selectedGateId, setSelectedGateId] = useState('all')
   const [searchText, setSearchText] = useState('')
+  // Busca com debounce contra o backend (GET /access-logs?search=), que
+  // filtra TODOS os registros da empresa, não só a página já carregada no
+  // cliente — mesmo ajuste já feito em Pessoas/Veículos (buscar um registro
+  // da página 2 enquanto a tela mostrava a página 1 nunca encontrava nada).
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isNewEntryOpen, setIsNewEntryOpen] = useState(false)
   const [exitingLog, setExitingLog] = useState(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchText), 400)
+    return () => clearTimeout(timer)
+  }, [searchText])
+
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch])
 
   const { lookups, lookupsError, counts, logs, pagination, isLoading, error, refetch } = useAccessControlData({
     status: statusFilter,
     page,
+    search: debouncedSearch,
   })
 
+  // Filtro por texto não roda mais aqui — o backend já devolve a página
+  // filtrada (?search=). Isso só resolve nome/placa/anfitrião a partir dos
+  // IDs pra exibição.
   const enrichedLogs = useMemo(() => {
     if (!lookups) return []
-    const rows = logs.map((log) => enrichLog(log, lookups))
-    if (!searchText.trim()) return rows
-    const term = searchText.trim().toLowerCase()
-    // Placa e CPF são guardados sem pontuação — remove traço/pontos do termo
-    // buscado também, senão digitar "ABC-1234" ou "123.456.789-10" (como a
-    // tela mostra) não bateria com o valor cru guardado no registro.
-    const plateTerm = term.replace(/-/g, '')
-    const cpfTerm = term.replace(/[.\-]/g, '')
-    return rows.filter(
-      (row) =>
-        row.personName.toLowerCase().includes(term) ||
-        row.personCpf?.toLowerCase().includes(cpfTerm) ||
-        row.vehiclePlate?.toLowerCase().includes(plateTerm),
-    )
-  }, [logs, lookups, searchText])
+    return logs.map((log) => enrichLog(log, lookups))
+  }, [logs, lookups])
 
   function changeFilter(key) {
     setStatusFilter(key)

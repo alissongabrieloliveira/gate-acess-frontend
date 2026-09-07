@@ -1,5 +1,5 @@
 import { Lock, Pencil, Plus, Search, Unlock } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import BlockReasonModal from '../../components/BlockReasonModal'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
@@ -21,30 +21,26 @@ function formatDate(value) {
 export default function VehiclesPage() {
   const [page, setPage] = useState(1)
   const [searchText, setSearchText] = useState('')
+  // Busca com debounce contra o backend (GET /vehicles?search=), que filtra
+  // TODOS os veículos da empresa, não só a página já carregada no cliente —
+  // mesmo ajuste já feito em Pessoas (buscar um veículo da página 2 enquanto
+  // a tela mostrava a página 1 nunca encontrava nada).
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState(null)
   const [blockingVehicle, setBlockingVehicle] = useState(null)
   const [actionError, setActionError] = useState(null)
 
-  const { isLoading, error, vehicles, pagination, refetch } = useVehiclesData({ page })
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchText), 400)
+    return () => clearTimeout(timer)
+  }, [searchText])
 
-  // Busca só filtra a página atual já carregada — não existe busca full-text
-  // no backend (mesma limitação já documentada no Controle de Acessos).
-  const filteredVehicles = useMemo(() => {
-    if (!searchText.trim()) return vehicles
-    const term = searchText.trim().toLowerCase()
-    // Placa é salva sem traço no banco — remove o traço também do termo
-    // buscado, senão digitar "ABC-1116" (como a tela mostra) não bateria
-    // com o "ABC1116" cru guardado em vehicle.licensePlate.
-    const plateTerm = term.replace(/-/g, '')
-    return vehicles.filter(
-      (vehicle) =>
-        vehicle.licensePlate?.toLowerCase().includes(plateTerm) ||
-        vehicle.identificationCode?.toLowerCase().includes(term) ||
-        vehicle.brand?.toLowerCase().includes(term) ||
-        vehicle.model?.toLowerCase().includes(term),
-    )
-  }, [vehicles, searchText])
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch])
+
+  const { isLoading, error, vehicles, pagination, refetch } = useVehiclesData({ page, search: debouncedSearch })
 
   async function handleUnblock(vehicle) {
     setActionError(null)
@@ -108,10 +104,10 @@ export default function VehiclesPage() {
 
         {isLoading ? (
           <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : filteredVehicles.length === 0 ? (
+        ) : vehicles.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhum veículo encontrado.</p>
         ) : (
-          filteredVehicles.map((vehicle) => (
+          vehicles.map((vehicle) => (
             <div key={vehicle.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
               <p className="w-[130px] text-sm font-bold text-ink">{formatPlateInput(vehicle.licensePlate)}</p>
               <p className="w-[110px] text-sm text-gray-700">{vehicle.identificationCode ?? '—'}</p>
@@ -167,7 +163,7 @@ export default function VehiclesPage() {
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-canvas px-5 py-3.5">
           <p className="text-[13px] text-muted">
-            {pagination ? `Mostrando ${filteredVehicles.length} de ${pagination.total} registros` : ''}
+            {pagination ? `Mostrando ${vehicles.length} de ${pagination.total} registros` : ''}
           </p>
           <div className="flex items-center gap-2">
             <button

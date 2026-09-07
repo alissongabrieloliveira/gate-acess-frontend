@@ -1,5 +1,5 @@
 import { Lock, Pencil, Plus, Search, Unlock } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import BlockReasonModal from '../../components/BlockReasonModal'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
@@ -21,30 +21,30 @@ function formatDate(value) {
 export default function PeoplePage() {
   const [page, setPage] = useState(1)
   const [searchText, setSearchText] = useState('')
+  // Busca com debounce contra o backend (GET /people?search=), que filtra
+  // TODAS as pessoas da empresa, não só a página já carregada no cliente —
+  // antes disso, buscar alguém que estava na página 2 enquanto a tela
+  // mostrava a página 1 nunca encontrava nada (o filtro rodava só em cima
+  // dos 8 registros já buscados).
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingPerson, setEditingPerson] = useState(null)
   const [blockingPerson, setBlockingPerson] = useState(null)
   const [actionError, setActionError] = useState(null)
 
-  const { isLoading, error, people, pagination, refetch } = usePeopleData({ page })
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchText), 400)
+    return () => clearTimeout(timer)
+  }, [searchText])
 
-  // Busca só filtra a página atual já carregada — não existe busca full-text
-  // no backend (mesma limitação já documentada em Veículos/Controle de
-  // Acessos; o backend só tem lookup exato de CPF via ?cpf=).
-  const filteredPeople = useMemo(() => {
-    if (!searchText.trim()) return people
-    const term = searchText.trim().toLowerCase()
-    // CPF e telefone são salvos sem pontuação — remove pontuação do termo
-    // buscado, senão digitar "123.456.789-10" ou "(11) 99999-8888" (como a
-    // tela agora mostra, formatados) não bateria com o valor cru guardado em
-    // person.cpf/person.phone.
-    const digitsTerm = term.replace(/\D/g, '')
-    return people.filter(
-      (person) =>
-        person.name?.toLowerCase().includes(term) ||
-        (digitsTerm && (person.cpf?.includes(digitsTerm) || person.phone?.includes(digitsTerm))),
-    )
-  }, [people, searchText])
+  // Reseta pra página 1 sempre que o termo buscado muda — a paginação é
+  // sobre o resultado filtrado, não faz sentido continuar na página 3 de
+  // uma busca nova.
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch])
+
+  const { isLoading, error, people, pagination, refetch } = usePeopleData({ page, search: debouncedSearch })
 
   async function handleUnblock(person) {
     setActionError(null)
@@ -106,10 +106,10 @@ export default function PeoplePage() {
 
         {isLoading ? (
           <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : filteredPeople.length === 0 ? (
+        ) : people.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhuma pessoa encontrada.</p>
         ) : (
-          filteredPeople.map((person) => (
+          people.map((person) => (
             <div key={person.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
               <p className="w-[220px] truncate text-sm font-semibold text-ink">{person.name}</p>
               <p className="w-[130px] text-sm text-gray-700">{person.cpf ? formatCpf(person.cpf) : '—'}</p>
@@ -163,7 +163,7 @@ export default function PeoplePage() {
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-canvas px-5 py-3.5">
           <p className="text-[13px] text-muted">
-            {pagination ? `Mostrando ${filteredPeople.length} de ${pagination.total} registros` : ''}
+            {pagination ? `Mostrando ${people.length} de ${pagination.total} registros` : ''}
           </p>
           <div className="flex items-center gap-2">
             <button

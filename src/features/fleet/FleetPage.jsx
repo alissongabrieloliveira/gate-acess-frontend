@@ -1,5 +1,5 @@
 import { LogIn, Plus, Search } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import TopBar from '../../components/TopBar'
 import { formatPlateInput } from '../../lib/format'
 import DepartureDrawer from './DepartureDrawer'
@@ -36,27 +36,35 @@ export default function FleetPage() {
   const [page, setPage] = useState(1)
   const [selectedGateId, setSelectedGateId] = useState('all')
   const [searchText, setSearchText] = useState('')
+  // Busca com debounce contra o backend (GET /fleet-logs?search=), que
+  // filtra TODOS os registros da empresa, não só a página já carregada no
+  // cliente — mesmo ajuste já feito em Pessoas/Veículos/Controle de Acessos.
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isDepartureOpen, setIsDepartureOpen] = useState(false)
   const [returningLog, setReturningLog] = useState(null)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchText), 400)
+    return () => clearTimeout(timer)
+  }, [searchText])
+
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch])
 
   const { lookups, lookupsError, counts, logs, pagination, isLoading, error, refetch } = useFleetData({
     status: statusFilter,
     page,
+    search: debouncedSearch,
   })
 
+  // Filtro por texto não roda mais aqui — o backend já devolve a página
+  // filtrada (?search=). Isso só resolve placa/motorista/portão a partir
+  // dos IDs pra exibição.
   const enrichedLogs = useMemo(() => {
     if (!lookups) return []
-    const rows = logs.map((log) => enrichFleetLog(log, lookups))
-    if (!searchText.trim()) return rows
-    const term = searchText.trim().toLowerCase()
-    const plateTerm = term.replace(/-/g, '')
-    return rows.filter(
-      (row) =>
-        row.vehiclePlate?.toLowerCase().includes(plateTerm) ||
-        row.driverName?.toLowerCase().includes(term) ||
-        row.destination?.toLowerCase().includes(term),
-    )
-  }, [logs, lookups, searchText])
+    return logs.map((log) => enrichFleetLog(log, lookups))
+  }, [logs, lookups])
 
   function changeFilter(key) {
     setStatusFilter(key)

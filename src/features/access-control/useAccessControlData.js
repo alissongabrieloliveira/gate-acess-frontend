@@ -21,7 +21,12 @@ export const PERSON_TYPES = [
  * IDs. Igual limitação documentada no dashboard: só a primeira página
  * (limit=100) de cada cadastro é buscada.
  */
-export function useAccessControlData({ status, page }) {
+// `search` (CPF/Nome/Placa) é resolvido pelo backend contra TODOS os
+// access_logs da empresa, não só a página carregada — GET
+// /access-logs?search= (ver access-logs.service.js). Sem isso, buscar um
+// registro que está na página 2 enquanto o cliente só carregou a página 1
+// nunca encontraria nada (mesmo bug já corrigido em Pessoas/Veículos).
+export function useAccessControlData({ status, page, search }) {
   const [lookups, setLookups] = useState(null)
   const [lookupsError, setLookupsError] = useState(null)
   const [logsState, setLogsState] = useState({ isLoading: true, error: null, logs: [], pagination: null })
@@ -67,13 +72,13 @@ export function useAccessControlData({ status, page }) {
     setLogsState((s) => ({ ...s, isLoading: true, error: null }))
     try {
       const { data } = await api.get('/access-logs', {
-        params: { status: status || undefined, page, limit: PAGE_SIZE },
+        params: { status: status || undefined, page, limit: PAGE_SIZE, search: search?.trim() || undefined },
       })
       setLogsState({ isLoading: false, error: null, logs: data.data, pagination: data.pagination })
     } catch (err) {
       setLogsState({ isLoading: false, error: err, logs: [], pagination: null })
     }
-  }, [status, page])
+  }, [status, page, search])
 
   useEffect(() => {
     loadLookups()

@@ -12,7 +12,13 @@ function byId(records) {
  * carregados uma vez como "lookups" (amostra parcial de até 100) pra resolver
  * placa/motorista/portão nos fleet_logs, que só trazem IDs.
  */
-export function useFleetData({ status, page }) {
+// `search` (placa/motorista/destino) é resolvido pelo backend contra TODOS
+// os fleet_logs da empresa, não só a página carregada — GET
+// /fleet-logs?search= (ver fleet-logs.service.js). Sem isso, buscar um
+// registro que está na página 2 enquanto o cliente só carregou a página 1
+// nunca encontraria nada (mesmo bug já corrigido em Pessoas/Veículos/
+// Controle de Acessos).
+export function useFleetData({ status, page, search }) {
   const [lookups, setLookups] = useState(null)
   const [lookupsError, setLookupsError] = useState(null)
   const [logsState, setLogsState] = useState({ isLoading: true, error: null, logs: [], pagination: null })
@@ -55,13 +61,13 @@ export function useFleetData({ status, page }) {
     setLogsState((s) => ({ ...s, isLoading: true, error: null }))
     try {
       const { data } = await api.get('/fleet-logs', {
-        params: { status: status || undefined, page, limit: PAGE_SIZE },
+        params: { status: status || undefined, page, limit: PAGE_SIZE, search: search?.trim() || undefined },
       })
       setLogsState({ isLoading: false, error: null, logs: data.data, pagination: data.pagination })
     } catch (err) {
       setLogsState({ isLoading: false, error: err, logs: [], pagination: null })
     }
-  }, [status, page])
+  }, [status, page, search])
 
   useEffect(() => {
     loadLookups()
