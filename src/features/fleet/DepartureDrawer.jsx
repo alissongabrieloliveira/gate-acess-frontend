@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Search } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
 import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { api } from '../../lib/api'
@@ -16,6 +16,39 @@ function StepBadge({ number }) {
       {number}
     </span>
   )
+}
+
+function formatCityLabel(city) {
+  return `${city.name} - ${city.stateAbbr}`
+}
+
+/**
+ * `cities` tem ~5.570 municípios — grande demais pro padrão "carrega até 100
+ * de uma vez e filtra no cliente" usado pra vehicles/people/gates neste
+ * projeto. Por isso é busca de verdade no servidor (`GET /cities?search=`),
+ * com debounce, em vez de um lookup client-side sobre uma amostra.
+ */
+function useCitySearch(query) {
+  const [results, setResults] = useState([])
+
+  useEffect(() => {
+    const term = query.trim()
+    if (term.length < 2) {
+      setResults([])
+      return
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await api.get('/cities', { params: { search: term, limit: MAX_SUGGESTIONS } })
+        setResults(data.data)
+      } catch {
+        setResults([])
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  return results
 }
 
 /**
@@ -41,10 +74,14 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
   const [fuelLevelDeparture, setFuelLevelDeparture] = useState('')
   const [observation, setObservation] = useState('')
   const [plateFocused, setPlateFocused] = useState(false)
+  const [destinationFocused, setDestinationFocused] = useState(false)
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const plateInputRef = useRef(null)
+  const destinationInputRef = useRef(null)
+
+  const citySuggestions = useCitySearch(destination)
 
   const fleetVehicles = useMemo(() => lookups.vehicles.filter((v) => v.vehicleType === 2), [lookups.vehicles])
 
@@ -73,6 +110,11 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
     setSelectedVehicle(null)
     setPlate('')
     plateInputRef.current?.focus()
+  }
+
+  function selectCity(city) {
+    setDestination(formatCityLabel(city))
+    destinationInputRef.current?.blur()
   }
 
   const vehicleBlocked = selectedVehicle?.isBlocked
@@ -316,15 +358,27 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
           </div>
 
           <div className="flex gap-2">
-            <div className="flex flex-1 flex-col gap-1">
+            <div className="relative flex flex-1 flex-col gap-1">
               <label className={labelClass}>Destino</label>
               <input
+                ref={destinationInputRef}
                 type="text"
                 value={destination}
                 onChange={(event) => setDestination(event.target.value)}
-                placeholder="Ex.: Cliente XPTO"
+                onFocus={() => setDestinationFocused(true)}
+                onBlur={() => setDestinationFocused(false)}
+                placeholder="Ex.: São Paulo - SP ou Cliente XPTO"
                 className={inputClass}
               />
+              {destinationFocused && (
+                <SuggestionsDropdown
+                  items={citySuggestions}
+                  onSelect={selectCity}
+                  renderItem={(city) => (
+                    <span className="text-[13px] font-semibold text-ink">{formatCityLabel(city)}</span>
+                  )}
+                />
+              )}
             </div>
             <div className="flex flex-1 flex-col gap-1">
               <label className={labelClass}>Motivo</label>
