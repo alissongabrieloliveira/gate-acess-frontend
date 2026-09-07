@@ -41,7 +41,7 @@ function formatDateTime(value) {
 }
 
 // Mesma lógica já usada em FleetLogDetailPage.jsx/FleetLogEditPage.jsx: KM
-// de saída leva em conta isKmUnavailable, KM de chegada ainda não existe
+// de saída leva em conta isKmUnavailable, KM de retorno ainda não existe
 // enquanto o veículo segue na rua.
 function formatKmDeparture(log) {
   if (log.isKmUnavailable) return 'Não disponível'
@@ -59,8 +59,8 @@ const EXPORT_COLUMNS = [
   { label: 'Destino', value: (r) => r.destination ?? '—' },
   { label: 'Saída', value: (r) => formatDateTime(r.departureTime) },
   { label: 'KM de Saída', value: (r) => formatKmDeparture(r) },
-  { label: 'Chegada', value: (r) => formatDateTime(r.returnTime) },
-  { label: 'KM de Chegada', value: (r) => formatKmReturn(r) },
+  { label: 'Retorno', value: (r) => formatDateTime(r.returnTime) },
+  { label: 'KM de Retorno', value: (r) => formatKmReturn(r) },
   { label: 'Status', value: (r) => (r.status === 'ON_TRIP' ? 'Na Rua' : r.status === 'RETURNED' ? 'Retornado' : r.status) },
 ]
 
@@ -187,7 +187,7 @@ export default function FleetLogsReportPage() {
           <p className="w-[110px] text-center">Saída</p>
           <p className="w-[90px] text-center">KM Saída</p>
           <p className="w-[110px] text-center">Retorno</p>
-          <p className="w-[90px] text-center">KM Chegada</p>
+          <p className="w-[90px] text-center">KM Retorno</p>
           <p className="w-[90px] text-center">Status</p>
           <p className="w-[80px] text-center">Detalhe</p>
         </div>
