@@ -1,5 +1,5 @@
 import { Camera, ChevronDown, ChevronUp, Search } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
@@ -20,6 +20,39 @@ function StepBadge({ number, active }) {
     >
       {number}
     </span>
+  )
+}
+
+const MAX_SUGGESTIONS = 5
+
+/**
+ * Dropdown de sugestões (busca inteligente) — filtra o mesmo array já
+ * carregado como "lookups" (até 100 registros, mesma amostra parcial já
+ * documentada em outras telas) direto no cliente, sem round-trip nenhum.
+ * Mais rápido que esperar o debounce da busca exata por CPF/placa, e cobre
+ * um caso que a busca exata nunca cobriu: procurar uma pessoa pelo nome.
+ */
+function SuggestionsDropdown({ items, renderItem, onSelect }) {
+  if (items.length === 0) return null
+  return (
+    <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-52 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          // onMouseDown (não onClick) com preventDefault: impede o input de
+          // perder foco antes do clique ser processado — sem isso o dropdown
+          // desmonta no blur e o clique nunca chega a disparar.
+          onMouseDown={(event) => {
+            event.preventDefault()
+            onSelect(item)
+          }}
+          className="flex w-full flex-col gap-0.5 border-b border-gray-100 px-3 py-2 text-left last:border-b-0 hover:bg-gray-50"
+        >
+          {renderItem(item)}
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -67,6 +100,13 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const [vehicleSectionOpen, setVehicleSectionOpen] = useState(true)
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [cpfFocused, setCpfFocused] = useState(false)
+  const [nameFocused, setNameFocused] = useState(false)
+  const [plateFocused, setPlateFocused] = useState(false)
+
+  const cpfInputRef = useRef(null)
+  const nameInputRef = useRef(null)
+  const plateInputRef = useRef(null)
 
   const personLookup = useLookup(cpf, 11, async (value) => {
     const { data } = await api.get('/people', { params: { cpf: value } })
@@ -79,6 +119,53 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
 
   const existingPerson = personLookup.status === 'found' ? personLookup.record : null
   const existingVehicle = vehicleLookup.status === 'found' ? vehicleLookup.record : null
+
+  // Só sugere pessoa com CPF cadastrado — selecionar uma preenche o campo
+  // CPF com o valor completo, que aciona o `personLookup` normal (o mesmo
+  // fluxo de sempre) pra confirmar/travar o registro. Pessoa sem CPF nunca
+  // teria como "travar" por esse caminho, e o formulário já exige CPF pra
+  // submeter de qualquer forma (ver `canSubmit` abaixo) — não é uma
+  // limitação nova introduzida pela busca inteligente.
+  const peopleWithCpf = useMemo(() => lookups.people.filter((p) => p.cpf), [lookups.people])
+
+  const cpfDigits = cpf.replace(/\D/g, '')
+  const cpfSuggestions = useMemo(() => {
+    if (existingPerson || cpfDigits.length < 3) return []
+    return peopleWithCpf.filter((p) => p.cpf.replace(/\D/g, '').includes(cpfDigits)).slice(0, MAX_SUGGESTIONS)
+  }, [peopleWithCpf, cpfDigits, existingPerson])
+
+  const nameQuery = name.trim().toLowerCase()
+  const nameSuggestions = useMemo(() => {
+    if (existingPerson || nameQuery.length < 2) return []
+    return peopleWithCpf.filter((p) => p.name.toLowerCase().includes(nameQuery)).slice(0, MAX_SUGGESTIONS)
+  }, [peopleWithCpf, nameQuery, existingPerson])
+
+  // Só compara por placa (não marca/modelo): o campo já aplica a máscara de
+  // placa a cada tecla, então qualquer texto que não pareça placa (ex.:
+  // digitar "onix" pra buscar por modelo) chega aqui já deformado pela
+  // máscara ("ONI-X") — comparar contra marca/modelo nesse estado sempre
+  // falharia. Manter o escopo só na placa evita esse bug.
+  const plateDigits = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  const vehicleSuggestions = useMemo(() => {
+    if (existingVehicle || plateDigits.length < 2) return []
+    return lookups.vehicles
+      .filter((v) => v.licensePlate?.toUpperCase().includes(plateDigits))
+      .slice(0, MAX_SUGGESTIONS)
+  }, [lookups.vehicles, plateDigits, existingVehicle])
+
+  function selectPerson(person) {
+    setCpf(formatCpf(person.cpf))
+    setName(person.name)
+    setPersonType(person.personType)
+    cpfInputRef.current?.blur()
+    nameInputRef.current?.blur()
+  }
+
+  function selectVehicle(vehicle) {
+    setPlate(formatPlateInput(vehicle.licensePlate))
+    setBrandModel([vehicle.brand, vehicle.model].filter(Boolean).join(' '))
+    plateInputRef.current?.blur()
+  }
 
   useEffect(() => {
     if (existingPerson) {
@@ -204,18 +291,35 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
             <p className="text-[13px] font-bold text-ink">Identificação da Pessoa</p>
           </div>
 
-          <div className="flex flex-col gap-1">
+          <div className="relative flex flex-col gap-1">
             <label className={labelClass}>CPF *</label>
             <div className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 focus-within:border-brand">
               <input
+                ref={cpfInputRef}
                 type="text"
                 value={cpf}
                 onChange={(event) => setCpf(formatCpf(event.target.value))}
+                onFocus={() => setCpfFocused(true)}
+                onBlur={() => setCpfFocused(false)}
                 placeholder="000.000.000-00"
                 className="w-full text-[13px] text-ink placeholder:text-gray-400 focus:outline-none"
               />
               <Search className="size-4 shrink-0 text-gray-400" strokeWidth={1.75} />
             </div>
+            {cpfFocused && (
+              <SuggestionsDropdown
+                items={cpfSuggestions}
+                onSelect={selectPerson}
+                renderItem={(person) => (
+                  <>
+                    <span className="text-[13px] font-semibold text-ink">{person.name}</span>
+                    <span className="text-[11px] text-muted">
+                      {formatCpf(person.cpf)} · {PERSON_TYPE_LABELS[person.personType]}
+                    </span>
+                  </>
+                )}
+              />
+            )}
             {personLookup.status === 'loading' && <p className="text-xs text-muted">Buscando...</p>}
             {personLookup.status === 'found' && !personBlocked && (
               <p className="text-xs text-green-700">Pessoa já cadastrada — dados preenchidos automaticamente.</p>
@@ -230,17 +334,34 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
             )}
           </div>
 
-          <div className="flex flex-col gap-1">
+          <div className="relative flex flex-col gap-1">
             <label className={labelClass}>Nome Completo *</label>
             <input
+              ref={nameInputRef}
               type="text"
               required
               value={name}
               disabled={!!existingPerson}
               onChange={(event) => setName(event.target.value)}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
               placeholder="Nome completo"
               className={inputClass}
             />
+            {nameFocused && (
+              <SuggestionsDropdown
+                items={nameSuggestions}
+                onSelect={selectPerson}
+                renderItem={(person) => (
+                  <>
+                    <span className="text-[13px] font-semibold text-ink">{person.name}</span>
+                    <span className="text-[11px] text-muted">
+                      {formatCpf(person.cpf)} · {PERSON_TYPE_LABELS[person.personType]}
+                    </span>
+                  </>
+                )}
+              />
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -299,15 +420,34 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
           {vehicleSectionOpen && (
             <>
               <div className="flex gap-2">
-                <div className="flex flex-1 flex-col gap-1">
+                <div className="relative flex flex-1 flex-col gap-1">
                   <label className={labelClass}>Placa</label>
                   <input
+                    ref={plateInputRef}
                     type="text"
                     value={plate}
                     onChange={(event) => setPlate(formatPlateInput(event.target.value))}
+                    onFocus={() => setPlateFocused(true)}
+                    onBlur={() => setPlateFocused(false)}
                     placeholder="ABC-1234"
                     className={inputClass}
                   />
+                  {plateFocused && (
+                    <SuggestionsDropdown
+                      items={vehicleSuggestions}
+                      onSelect={selectVehicle}
+                      renderItem={(vehicle) => (
+                        <>
+                          <span className="text-[13px] font-semibold text-ink">
+                            {formatPlateInput(vehicle.licensePlate)}
+                          </span>
+                          <span className="text-[11px] text-muted">
+                            {[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo'}
+                          </span>
+                        </>
+                      )}
+                    />
+                  )}
                   {vehicleLookup.status === 'found' && !vehicleBlocked && (
                     <p className="text-xs text-green-700">Veículo já cadastrado.</p>
                   )}
