@@ -1,4 +1,5 @@
 import {
+  Ban,
   Car,
   ChevronDown,
   DoorClosed,
@@ -21,7 +22,13 @@ import { useAuth } from '../lib/auth'
 import { RULES } from '../lib/rules'
 
 const REGISTRY_PATHS = ['/vehicles', '/people', '/users', '/control-posts']
-const REPORTS_PATHS = ['/reports/audit-logs', '/reports/login-logs']
+const REPORTS_PATHS = [
+  '/reports/access-logs',
+  '/reports/fleet-logs',
+  '/reports/blocked-people',
+  '/reports/audit-logs',
+  '/reports/login-logs',
+]
 
 const navItemClass = ({ isActive }) =>
   `flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm ${
@@ -117,26 +124,40 @@ export default function Sidebar() {
             </div>
           )}
 
-          {/* Único relatório hoje (Auditoria/Login) é admin-only no backend
-              (authorize(RULES.ADMIN) em audit-logs.routes.js/login-logs.routes.js)
-              — item inteiro escondido de operadores, mesmo critério de Usuários
-              dentro de Cadastros. */}
-          {isAdmin && (
-            <>
-              <button
-                type="button"
-                onClick={() => setReportsOpen((value) => !value)}
-                className="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
-              >
-                <FileText className="size-[18px]" strokeWidth={2} />
-                <span className="flex-1 text-left">Relatórios</span>
-                <ChevronDown
-                  className={`size-3.5 transition-transform ${reportsOpen ? 'rotate-180' : ''}`}
-                  strokeWidth={2.25}
-                />
-              </button>
-              {reportsOpen && (
-                <div className="flex flex-col gap-0.5">
+          <button
+            type="button"
+            onClick={() => setReportsOpen((value) => !value)}
+            className="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
+          >
+            <FileText className="size-[18px]" strokeWidth={2} />
+            <span className="flex-1 text-left">Relatórios</span>
+            <ChevronDown
+              className={`size-3.5 transition-transform ${reportsOpen ? 'rotate-180' : ''}`}
+              strokeWidth={2.25}
+            />
+          </button>
+          {reportsOpen && (
+            <div className="flex flex-col gap-0.5">
+              <NavLink to="/reports/access-logs" className={subNavItemClass}>
+                <DoorClosed className="size-[18px]" strokeWidth={1.75} />
+                Acessos
+              </NavLink>
+              <NavLink to="/reports/fleet-logs" className={subNavItemClass}>
+                <Truck className="size-[18px]" strokeWidth={1.75} />
+                Frota
+              </NavLink>
+              <NavLink to="/reports/blocked-people" className={subNavItemClass}>
+                <Ban className="size-[18px]" strokeWidth={1.75} />
+                Pessoas Bloqueadas
+              </NavLink>
+              {/* Auditoria/Login são admin-only no backend
+                  (authorize(RULES.ADMIN) em audit-logs.routes.js/
+                  login-logs.routes.js) — só esses dois itens ficam
+                  escondidos de operadores, mesmo critério de Usuários
+                  dentro de Cadastros (o restante de Relatórios é leitura
+                  aberta, igual Controle de Acessos/Frota/Pessoas). */}
+              {isAdmin && (
+                <>
                   <NavLink to="/reports/audit-logs" className={subNavItemClass}>
                     <History className="size-[18px]" strokeWidth={1.75} />
                     Auditoria
@@ -145,9 +166,9 @@ export default function Sidebar() {
                     <LogIn className="size-[18px]" strokeWidth={1.75} />
                     Login
                   </NavLink>
-                </div>
+                </>
               )}
-            </>
+            </div>
           )}
           <NavLink to="/settings" className={navItemClass}>
             <Settings className="size-[18px]" strokeWidth={2} />
