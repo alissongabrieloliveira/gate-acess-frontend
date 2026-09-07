@@ -7,8 +7,8 @@ function decodeAccessToken(token) {
   // Decodifica só o payload (base64url) — a assinatura já foi validada pelo backend.
   const payload = token.split('.')[1]
   const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-  const { sub, company_id, rules } = JSON.parse(json)
-  return { userId: sub, companyId: company_id, rules }
+  const { sub, company_id, rules, must_change_password } = JSON.parse(json)
+  return { userId: sub, companyId: company_id, rules, mustChangePassword: Boolean(must_change_password) }
 }
 
 export function AuthProvider({ children }) {
@@ -62,8 +62,18 @@ export function AuthProvider({ children }) {
     setUser((current) => (current ? { ...current, name: data.name } : current))
   }
 
+  // Usado pela tela de troca de senha obrigatória: o access token atual
+  // ainda carrega `mustChangePassword: true` (foi emitido antes da troca),
+  // então só trocar a senha não basta pra liberar o resto do app — precisa
+  // de um token novo. Reaproveita o mesmo /auth/refresh já usado pra
+  // restaurar sessão, que relê o campo do banco e emite o token atualizado.
+  async function refreshAccessToken() {
+    const { data } = await api.post('/auth/refresh')
+    applyToken(data.accessToken)
+  }
+
   const value = useMemo(
-    () => ({ user, isAuthenticated: !!user, isLoading, login, logout, refreshUser }),
+    () => ({ user, isAuthenticated: !!user, isLoading, login, logout, refreshUser, refreshAccessToken }),
     [user, isLoading],
   )
 

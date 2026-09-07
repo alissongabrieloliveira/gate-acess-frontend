@@ -21,10 +21,17 @@ function StepBadge({ number }) {
 /**
  * Cria ou edita um operador (POST/PUT /users). Só admin acessa esta tela
  * (rota /users, sidebar já esconde o link — o backend também barra 403 se
- * chamado sem permissão). Senha é obrigatória na criação, opcional na
- * edição (mesmo texto de ajuda já usado em Configurações: "deixe em branco
- * para manter a senha atual"). "Ativo" só aparece editando — usuário novo
- * já nasce ativo por padrão no banco (não faz sentido criar já inativo).
+ * chamado sem permissão).
+ *
+ * Senha: só existe campo na CRIAÇÃO (senha temporária) — o backend recusa
+ * (403) qualquer tentativa de admin definir senha pra outro usuário depois
+ * de criado, mesmo através desta tela. Decisão de segurança: admin não deve
+ * deter/poder redefinir a senha de uso contínuo de ninguém. O usuário
+ * recém-criado é obrigado a trocar essa senha temporária no primeiro login
+ * (ver ChangePasswordPage.jsx) antes de acessar qualquer outra tela.
+ *
+ * "Ativo" só aparece editando — usuário novo já nasce ativo por padrão no
+ * banco (não faz sentido criar já inativo).
  */
 export default function UserFormDrawer({ user, onClose, onSaved }) {
   const [name, setName] = useState(user?.name ?? '')
@@ -45,10 +52,10 @@ export default function UserFormDrawer({ user, onClose, onSaved }) {
     event.preventDefault()
     setError(null)
     if (!canSubmit) {
-      setError(isEditing ? 'Nome, CPF e e-mail são obrigatórios.' : 'Nome, CPF, e-mail e senha são obrigatórios.')
+      setError(isEditing ? 'Nome, CPF e e-mail são obrigatórios.' : 'Nome, CPF, e-mail e senha temporária são obrigatórios.')
       return
     }
-    if (password && password !== confirmPassword) {
+    if (!isEditing && password !== confirmPassword) {
       setError('A confirmação não confere com a senha.')
       return
     }
@@ -64,12 +71,13 @@ export default function UserFormDrawer({ user, onClose, onSaved }) {
         email: email.trim(),
         rules: isAdmin ? RULES.ADMIN : 0,
       }
-      if (password) payload.password = password
 
       if (isEditing) {
         await api.patch(`/users/${user.id}`, { ...payload, isActive })
       } else {
-        await api.post('/users', payload)
+        // Senha temporária: só entra no payload de criação — edição nunca
+        // manda esse campo (backend recusaria mesmo se mandasse).
+        await api.post('/users', { ...payload, password })
       }
 
       onSaved()
@@ -149,30 +157,36 @@ export default function UserFormDrawer({ user, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5 rounded-lg border border-gray-200 p-3">
-            <label className={labelClass}>{isEditing ? 'Nova Senha' : 'Senha *'}</label>
-            {isEditing && <p className="text-[11px] text-muted">Deixe em branco para manter a senha atual.</p>}
-            <input
-              type="password"
-              required={!isEditing}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="new-password"
-              className={inputClass}
-            />
-            {password && (
-              <>
-                <label className={`${labelClass} mt-1`}>Confirmar Senha</label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  autoComplete="new-password"
-                  className={inputClass}
-                />
-              </>
-            )}
-          </div>
+          {isEditing ? (
+            <p className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-[11px] text-muted">
+              A senha só pode ser alterada pelo próprio usuário, em Configurações — nem admin pode redefinir a
+              senha de outra pessoa.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5 rounded-lg border border-gray-200 p-3">
+              <label className={labelClass}>Senha Temporária *</label>
+              <p className="text-[11px] text-muted">
+                O usuário será obrigado a trocar essa senha no primeiro login.
+              </p>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="new-password"
+                className={inputClass}
+              />
+              <label className={`${labelClass} mt-1`}>Confirmar Senha Temporária *</label>
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+                className={inputClass}
+              />
+            </div>
+          )}
 
           <div className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3">
             <div className="flex items-center justify-between gap-3">

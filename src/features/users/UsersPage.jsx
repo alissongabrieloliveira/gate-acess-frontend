@@ -176,11 +176,19 @@ export default function UsersPage() {
                   </span>
                 </div>
                 <p className="w-[140px] text-[13px] text-gray-700">{formatDate(row.createdAt)}</p>
-                <div className="w-[90px]">
+                <div className="flex w-[90px] flex-col items-start gap-1">
                   {row.isActive ? (
                     <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
                   ) : (
                     <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">Inativo</span>
+                  )}
+                  {row.mustChangePassword && (
+                    <span
+                      title="Ainda não trocou a senha temporária definida na criação"
+                      className="text-[10px] font-semibold text-amber-600"
+                    >
+                      Senha pendente
+                    </span>
                   )}
                 </div>
                 <div className="flex w-[120px] items-center justify-center gap-2">

@@ -3,6 +3,7 @@ import Layout from '../components/Layout'
 import AccessControlPage from '../features/access-control/AccessControlPage'
 import AccessLogDetailPage from '../features/access-control/AccessLogDetailPage'
 import AccessLogEditPage from '../features/access-control/AccessLogEditPage'
+import ChangePasswordPage from '../features/auth/ChangePasswordPage'
 import ForgotPasswordPage from '../features/auth/ForgotPasswordPage'
 import LoginPage from '../features/auth/LoginPage'
 import ControlPostsPage from '../features/control-posts/ControlPostsPage'
@@ -25,6 +26,10 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           <Route element={<ProtectedRoute />}>
+            {/* Fora do <Layout> de propósito — sem sidebar, mesma casca visual do
+                login (AuthLayout), já que o usuário ainda não tem acesso liberado
+                ao resto do app enquanto mustChangePassword for true. */}
+            <Route path="/change-password" element={<ChangePasswordPage />} />
             <Route element={<Layout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/access-control" element={<AccessControlPage />} />
