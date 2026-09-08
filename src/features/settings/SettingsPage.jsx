@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { getErrorMessage } from '../../lib/errors'
+import { formatCpf, isValidCpf } from '../../lib/format'
 import { RULES } from '../../lib/rules'
 import { useSettingsData } from './useSettingsData'
 
@@ -67,15 +68,24 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!profile) return
     setName(profile.name ?? '')
-    setCpf(profile.cpf ?? '')
+    setCpf(formatCpf(profile.cpf))
     setEmail(profile.email ?? '')
   }, [profile])
+
+  const cpfDigits = cpf.replace(/\D/g, '')
+  // CPF de users é obrigatório (diferente de people) — mesmo critério já
+  // usado em UserFormDrawer.
+  const cpfIsValid = isValidCpf(cpfDigits)
 
   async function handleSubmit(event) {
     event.preventDefault()
     setSubmitError(null)
     setSubmitSuccess(false)
 
+    if (!cpfIsValid) {
+      setSubmitError('CPF inválido.')
+      return
+    }
     if (newPassword && newPassword !== confirmPassword) {
       setSubmitError('A confirmação não confere com a nova senha.')
       return
@@ -83,7 +93,10 @@ export default function SettingsPage() {
 
     setIsSubmitting(true)
     try {
-      const payload = { name, cpf, email }
+      // CPF não é normalizado pelo backend (fica salvo exatamente como
+      // chega) — envia só os dígitos, mesmo tratamento já usado no resto
+      // do app.
+      const payload = { name, cpf: cpfDigits, email }
       if (newPassword) payload.password = newPassword
 
       await api.patch(`/users/${profile.id}`, payload)
@@ -142,7 +155,8 @@ export default function SettingsPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <label className={labelClass}>CPF</label>
-                <input value={cpf} onChange={(e) => setCpf(e.target.value)} className={inputClass} />
+                <input value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} required className={inputClass} />
+                {cpfDigits.length === 11 && !cpfIsValid && <p className="text-xs text-red-600">CPF inválido</p>}
               </div>
               <div className="flex flex-col gap-1">
                 <label className={labelClass}>E-mail</label>
@@ -194,7 +208,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-end">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !cpfIsValid}
                 className="rounded-[10px] bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
               >
                 {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
