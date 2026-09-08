@@ -3,7 +3,7 @@ import SlideOver from '../../components/SlideOver'
 import ToggleSwitch from '../../components/ToggleSwitch'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import { formatCpf } from '../../lib/format'
+import { formatCpf, isValidCpf } from '../../lib/format'
 import { RULES } from '../../lib/rules'
 
 const inputClass =
@@ -45,14 +45,19 @@ export default function UserFormDrawer({ user, onClose, onSaved }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const isEditing = !!user
-  const canSubmit =
-    name.trim().length > 0 && cpf.replace(/\D/g, '').length > 0 && email.trim().length > 0 && (isEditing || password)
+  const cpfDigits = cpf.replace(/\D/g, '')
+  const cpfIsValid = isValidCpf(cpfDigits)
+  const canSubmit = name.trim().length > 0 && cpfIsValid && email.trim().length > 0 && (isEditing || password)
 
   async function handleSubmit(event) {
     event.preventDefault()
     setError(null)
     if (!canSubmit) {
-      setError(isEditing ? 'Nome, CPF e e-mail são obrigatórios.' : 'Nome, CPF, e-mail e senha temporária são obrigatórios.')
+      if (cpfDigits.length > 0 && !cpfIsValid) {
+        setError('CPF inválido.')
+      } else {
+        setError(isEditing ? 'Nome, CPF e e-mail são obrigatórios.' : 'Nome, CPF, e-mail e senha temporária são obrigatórios.')
+      }
       return
     }
     if (!isEditing && password !== confirmPassword) {
@@ -143,6 +148,7 @@ export default function UserFormDrawer({ user, onClose, onSaved }) {
                 placeholder="123.456.789-10"
                 className={inputClass}
               />
+              {cpfDigits.length === 11 && !cpfIsValid && <p className="text-xs text-red-600">CPF inválido</p>}
             </div>
             <div className="flex flex-1 flex-col gap-1">
               <label className={labelClass}>E-mail *</label>
