@@ -27,6 +27,7 @@ const REPORTS_PATHS = [
   '/reports/access-logs',
   '/reports/fleet-logs',
   '/reports/blocked-people',
+  '/reports/sector-visits',
   '/reports/audit-logs',
   '/reports/login-logs',
 ]
@@ -154,6 +155,10 @@ export default function Sidebar() {
               <NavLink to="/reports/blocked-people" className={subNavItemClass}>
                 <Ban className="size-[18px]" strokeWidth={1.75} />
                 Pessoas Bloqueadas
+              </NavLink>
+              <NavLink to="/reports/sector-visits" className={subNavItemClass}>
+                <MapPin className="size-[18px]" strokeWidth={1.75} />
+                Visitas por Setor
               </NavLink>
               {/* Auditoria/Login são admin-only no backend
                   (authorize(RULES.ADMIN) em audit-logs.routes.js/
