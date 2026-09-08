@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
+import { formatCpf, isValidCpf } from '../../lib/format'
 import { PERSON_TYPES } from './useAccessControlData'
 import { useAccessLogDetail } from './useAccessLogDetail'
 
@@ -49,7 +50,7 @@ export default function AccessLogEditPage() {
   useEffect(() => {
     if (!detail) return
     setName(detail.person.name ?? '')
-    setCpf(detail.person.cpf ?? '')
+    setCpf(formatCpf(detail.person.cpf))
     setPersonType(detail.person.personType)
     if (detail.vehicle) {
       setPlate(detail.vehicle.licensePlate ?? '')
@@ -57,12 +58,25 @@ export default function AccessLogEditPage() {
     }
   }, [detail])
 
+  const cpfDigits = cpf.replace(/\D/g, '')
+  // CPF é opcional em people (nem toda pessoa tem cadastrado) — só precisa
+  // ser válido quando algo foi digitado, mesmo critério já usado em
+  // PersonFormDrawer/UserFormDrawer.
+  const cpfIsValid = cpfDigits.length === 0 || isValidCpf(cpfDigits)
+
   async function handleSubmit(event) {
     event.preventDefault()
     setSubmitError(null)
+    if (!cpfIsValid) {
+      setSubmitError('CPF inválido.')
+      return
+    }
     setIsSubmitting(true)
     try {
-      await api.put(`/people/${detail.person.id}`, { name, cpf, personType })
+      // CPF não é normalizado pelo backend (fica salvo exatamente como
+      // chega) — envia só os dígitos, mesmo tratamento já usado no resto
+      // do app.
+      await api.put(`/people/${detail.person.id}`, { name, cpf: cpfDigits, personType })
       if (detail.vehicle) {
         await api.put(`/vehicles/${detail.vehicle.id}`, { licensePlate: plate, model: brandModel || undefined })
       }
@@ -131,7 +145,8 @@ export default function AccessLogEditPage() {
               </div>
               <div className="flex flex-1 flex-col gap-1">
                 <label className={labelClass}>CPF</label>
-                <input value={cpf} onChange={(e) => setCpf(e.target.value)} className={inputClass} />
+                <input value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} className={inputClass} />
+                {cpfDigits.length === 11 && !cpfIsValid && <p className="text-xs text-red-600">CPF inválido</p>}
               </div>
             </div>
             <div className="flex gap-4">
@@ -253,7 +268,7 @@ export default function AccessLogEditPage() {
           <div className="mt-auto flex items-center justify-end gap-3 pt-2">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !cpfIsValid}
               className="rounded-[10px] bg-brand px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
             >
               {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}

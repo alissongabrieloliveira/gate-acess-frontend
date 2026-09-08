@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import { formatPlateInput } from '../../lib/format'
+import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
 import { PERSON_TYPES } from './useFleetData'
 import { useFleetLogDetail } from './useFleetLogDetail'
 
@@ -66,7 +66,7 @@ export default function FleetLogEditPage() {
     setBrandModel([detail.vehicle.brand, detail.vehicle.model].filter(Boolean).join(' '))
     if (detail.driver) {
       setDriverName(detail.driver.name ?? '')
-      setDriverCpf(detail.driver.cpf ?? '')
+      setDriverCpf(formatCpf(detail.driver.cpf))
       setDriverType(detail.driver.personType)
     }
     if (detail.transportingVehicle) {
@@ -75,14 +75,26 @@ export default function FleetLogEditPage() {
     }
   }, [detail])
 
+  const driverCpfDigits = driverCpf.replace(/\D/g, '')
+  // CPF é opcional em people — só precisa ser válido quando algo foi
+  // digitado, mesmo critério já usado em PersonFormDrawer/AccessLogEditPage.
+  const driverCpfIsValid = driverCpfDigits.length === 0 || isValidCpf(driverCpfDigits)
+
   async function handleSubmit(event) {
     event.preventDefault()
     setSubmitError(null)
+    if (detail.driver && !driverCpfIsValid) {
+      setSubmitError('CPF do motorista inválido.')
+      return
+    }
     setIsSubmitting(true)
     try {
       await api.put(`/vehicles/${detail.vehicle.id}`, { licensePlate: plate, model: brandModel || undefined })
       if (detail.driver) {
-        await api.put(`/people/${detail.driver.id}`, { name: driverName, cpf: driverCpf, personType: driverType })
+        // CPF não é normalizado pelo backend (fica salvo exatamente como
+        // chega) — envia só os dígitos, mesmo tratamento já usado no resto
+        // do app.
+        await api.put(`/people/${detail.driver.id}`, { name: driverName, cpf: driverCpfDigits, personType: driverType })
       }
       if (detail.transportingVehicle) {
         await api.put(`/vehicles/${detail.transportingVehicle.id}`, { licensePlate: towPlate, model: towBrandModel || undefined })
@@ -175,7 +187,10 @@ export default function FleetLogEditPage() {
                   </div>
                   <div className="flex flex-1 flex-col gap-1">
                     <label className={labelClass}>CPF</label>
-                    <input value={driverCpf} onChange={(e) => setDriverCpf(e.target.value)} className={inputClass} />
+                    <input value={driverCpf} onChange={(e) => setDriverCpf(formatCpf(e.target.value))} className={inputClass} />
+                    {driverCpfDigits.length === 11 && !driverCpfIsValid && (
+                      <p className="text-xs text-red-600">CPF inválido</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -289,7 +304,7 @@ export default function FleetLogEditPage() {
           <div className="mt-auto flex items-center justify-end gap-3 pt-2">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (!!detail.driver && !driverCpfIsValid)}
               className="rounded-[10px] bg-brand px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
             >
               {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
