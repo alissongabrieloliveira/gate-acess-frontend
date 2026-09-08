@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   LogIn,
   LogOut,
+  MapPin,
   Settings,
   Shield,
   ShieldCheck,
@@ -21,7 +22,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { RULES } from '../lib/rules'
 
-const REGISTRY_PATHS = ['/vehicles', '/people', '/users', '/control-posts']
+const REGISTRY_PATHS = ['/vehicles', '/people', '/users', '/control-posts', '/sectors']
 const REPORTS_PATHS = [
   '/reports/access-logs',
   '/reports/fleet-logs',
@@ -120,6 +121,10 @@ export default function Sidebar() {
               <NavLink to="/control-posts" className={subNavItemClass}>
                 <Shield className="size-[18px]" strokeWidth={1.75} />
                 Postos de Controle
+              </NavLink>
+              <NavLink to="/sectors" className={subNavItemClass}>
+                <MapPin className="size-[18px]" strokeWidth={1.75} />
+                Setores
               </NavLink>
             </div>
           )}

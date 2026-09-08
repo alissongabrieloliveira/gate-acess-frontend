@@ -18,6 +18,7 @@ import AuditLogsPage from '../features/reports/AuditLogsPage'
 import BlockedPeopleReportPage from '../features/reports/BlockedPeopleReportPage'
 import FleetLogsReportPage from '../features/reports/FleetLogsReportPage'
 import LoginLogsPage from '../features/reports/LoginLogsPage'
+import SectorsPage from '../features/sectors/SectorsPage'
 import SettingsPage from '../features/settings/SettingsPage'
 import UsersPage from '../features/users/UsersPage'
 import VehiclesPage from '../features/vehicles/VehiclesPage'
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="/people" element={<PeoplePage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/control-posts" element={<ControlPostsPage />} />
+              <Route path="/sectors" element={<SectorsPage />} />
               <Route path="/reports/access-logs" element={<AccessLogsReportPage />} />
               <Route path="/reports/fleet-logs" element={<FleetLogsReportPage />} />
               <Route path="/reports/blocked-people" element={<BlockedPeopleReportPage />} />
