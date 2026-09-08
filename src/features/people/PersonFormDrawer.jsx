@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
 import { api, toAbsoluteUrl } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import { formatCpf, formatPhone, formatRg } from '../../lib/format'
+import { formatCpf, formatPhone, formatRg, isValidCpf } from '../../lib/format'
 import { PERSON_TYPES } from './usePeopleData'
 
 const inputClass =
@@ -56,7 +56,11 @@ export default function PersonFormDrawer({ person, onClose, onSaved }) {
 
   const editingId = person?.id ?? createdPersonId
   const isEditing = !!person
-  const canSubmit = name.trim().length > 0
+  const cpfDigits = cpf.replace(/\D/g, '')
+  // CPF é opcional (nem toda pessoa tem — estrangeiro/criança só com RG),
+  // então só precisa ser válido quando algo foi digitado.
+  const cpfIsValid = cpfDigits.length === 0 || isValidCpf(cpfDigits)
+  const canSubmit = name.trim().length > 0 && cpfIsValid
 
   function handlePhotoChange(event) {
     const file = event.target.files?.[0]
@@ -84,7 +88,7 @@ export default function PersonFormDrawer({ person, onClose, onSaved }) {
     event.preventDefault()
     setError(null)
     if (!canSubmit) {
-      setError('Nome é obrigatório.')
+      setError(!name.trim() ? 'Nome é obrigatório.' : 'CPF inválido.')
       return
     }
 
@@ -197,6 +201,9 @@ export default function PersonFormDrawer({ person, onClose, onSaved }) {
                 placeholder="123.456.789-10"
                 className={inputClass}
               />
+              {/* Só avisa quando os 11 dígitos já foram digitados — evita
+                  nagging enquanto a pessoa ainda está no meio da digitação. */}
+              {cpfDigits.length === 11 && !cpfIsValid && <p className="text-xs text-red-600">CPF inválido</p>}
             </div>
             <div className="flex flex-1 flex-col gap-1">
               <label className={labelClass}>RG</label>

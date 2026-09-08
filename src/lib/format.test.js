@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { formatCpf, formatPhone, formatPlateInput, formatRg } from './format'
+import { formatCpf, formatPhone, formatPlateInput, formatRg, isValidCpf } from './format'
 
 describe('formatPlateInput', () => {
   test.each([
@@ -37,6 +37,25 @@ describe('formatCpf', () => {
   test('null/undefined não quebram', () => {
     expect(formatCpf(null)).toBe('')
     expect(formatCpf(undefined)).toBe('')
+  })
+})
+
+describe('isValidCpf', () => {
+  test.each([
+    ['12345678909', true],
+    ['123.456.789-09', true],
+    ['11144477735', true],
+    ['11122233344', false], // dígito verificador incorreto
+    ['11111111111', false], // todos os dígitos iguais
+    ['1234567890', false], // menos de 11 dígitos
+    ['', false],
+  ])('%s -> %s', (input, expected) => {
+    expect(isValidCpf(input)).toBe(expected)
+  })
+
+  test('null/undefined não quebram', () => {
+    expect(isValidCpf(null)).toBe(false)
+    expect(isValidCpf(undefined)).toBe(false)
   })
 })
 

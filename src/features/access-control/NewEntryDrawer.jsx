@@ -4,7 +4,7 @@ import SlideOver from '../../components/SlideOver'
 import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import { formatCpf, formatPlateInput } from '../../lib/format'
+import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
 import { openPrintWindow, printReceipt } from './printReceipt'
 import { PERSON_TYPE_LABELS, PERSON_TYPES } from './useAccessControlData'
 
@@ -150,8 +150,14 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
 
   const personBlocked = existingPerson?.isBlocked
   const vehicleBlocked = existingVehicle?.isBlocked
+  const newEntryCpfDigits = cpf.replace(/\D/g, '')
+  // Pessoa já cadastrada (existingPerson): o CPF vem travado com um valor já
+  // existente no banco, não precisa revalidar aqui. Pessoa nova: precisa
+  // passar no dígito verificador antes de tentar criar via POST /people.
+  const newEntryCpfIsValid = !!existingPerson || isValidCpf(newEntryCpfDigits)
   const canSubmit =
-    cpf.replace(/\D/g, '').length >= 11 &&
+    newEntryCpfDigits.length >= 11 &&
+    newEntryCpfIsValid &&
     name.trim() &&
     destinationSectorId &&
     visitedPersonId &&
@@ -162,7 +168,11 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     event.preventDefault()
     setError(null)
     if (!canSubmit) {
-      setError('Preencha CPF, nome, setor de destino e anfitrião para continuar.')
+      setError(
+        newEntryCpfDigits.length >= 11 && !newEntryCpfIsValid
+          ? 'CPF inválido.'
+          : 'Preencha CPF, nome, setor de destino e anfitrião para continuar.'
+      )
       return
     }
 
@@ -297,8 +307,15 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
                 Pessoa bloqueada: {existingPerson.blockReason || 'sem motivo informado'}
               </p>
             )}
-            {personLookup.status === 'not-found' && (
+            {personLookup.status === 'not-found' && newEntryCpfIsValid && (
               <p className="text-xs text-muted">CPF não encontrado — preencha os dados para cadastrar.</p>
+            )}
+            {/* useLookup só dispara com 11+ dígitos, então por aqui o CPF já
+                está completo — se não bateu o dígito verificador, é mais útil
+                avisar isso do que sugerir cadastrar uma pessoa nova com CPF
+                inválido. */}
+            {personLookup.status === 'not-found' && !newEntryCpfIsValid && (
+              <p className="text-xs text-red-600">CPF inválido.</p>
             )}
           </div>
 

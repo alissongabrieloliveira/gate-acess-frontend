@@ -36,6 +36,36 @@ export function formatCpf(value) {
 }
 
 /**
+ * Valida CPF pelo algoritmo padrão de dígito verificador (mod 11) — mesmo
+ * cálculo replicado em backend/src/utils/cpf.js (repositórios separados,
+ * sem import compartilhado, mesmo critério já usado em lib/rules.js).
+ * Validação real acontece sempre no backend antes de gravar; isso aqui é só
+ * pra dar feedback imediato no formulário sem round-trip.
+ */
+export function isValidCpf(value) {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  if (digits.length !== 11) return false
+  if (/^(\d)\1{10}$/.test(digits)) return false
+
+  const checkDigit = (base) => {
+    let sum = 0
+    let weight = base.length + 1
+    for (const char of base) {
+      sum += Number(char) * weight
+      weight -= 1
+    }
+    const remainder = sum % 11
+    return remainder < 2 ? 0 : 11 - remainder
+  }
+
+  const base = digits.slice(0, 9)
+  const digit1 = checkDigit(base)
+  const digit2 = checkDigit(base + digit1)
+
+  return digits === `${base}${digit1}${digit2}`
+}
+
+/**
  * Formata telefone pra exibição/digitação — 10 dígitos vira fixo
  * ("(11) 1234-5678"), 11 dígitos vira celular ("(11) 91234-5678"). Igual ao
  * CPF, o backend não normaliza `people.phone` (grava exatamente o que
