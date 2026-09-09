@@ -3,6 +3,7 @@ import {
   Car,
   ChevronDown,
   DoorClosed,
+  Download,
   FileText,
   FolderOpen,
   History,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useInstallPrompt } from '../hooks/useInstallPrompt'
 import { useAuth } from '../lib/auth'
 import { RULES } from '../lib/rules'
 
@@ -44,6 +46,7 @@ const subNavItemClass = ({ isActive }) =>
 
 export default function Sidebar() {
   const { user, logout } = useAuth()
+  const { canInstall, promptInstall } = useInstallPrompt()
   const location = useLocation()
   const [registryOpen, setRegistryOpen] = useState(
     REGISTRY_PATHS.some((path) => location.pathname.startsWith(path)),
@@ -187,25 +190,43 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      <div className="flex items-center gap-3 rounded-[10px] border-t border-gray-200 bg-white p-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
-          {initials}
+      <div className="flex flex-col gap-3">
+        {/* Só renderiza quando o navegador de fato disparou o
+            `beforeinstallprompt` (Chrome/Edge/Android — ver
+            hooks/useInstallPrompt.js) — some sozinho depois de instalado ou
+            em navegadores sem suporte (Safari/iOS), sem checagem manual de
+            "já está instalado" nem persistência de dispensa. */}
+        {canInstall && (
+          <button
+            type="button"
+            onClick={promptInstall}
+            className="flex items-center justify-center gap-2 rounded-[10px] bg-brand-50 px-3 py-2.5 text-sm font-semibold text-brand hover:bg-brand/10"
+          >
+            <Download className="size-4" strokeWidth={2} />
+            Instalar aplicativo
+          </button>
+        )}
+
+        <div className="flex items-center gap-3 rounded-[10px] border-t border-gray-200 bg-white p-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
+            {initials}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <p className="truncate text-sm font-semibold text-ink">{user?.name ?? '...'}</p>
+            <p className="truncate text-[11px] font-medium text-gray-500">
+              {isAdmin ? 'Administrador' : 'Operador'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            aria-label="Sair"
+            title="Sair"
+            className="shrink-0 text-gray-500 hover:text-ink"
+          >
+            <LogOut className="size-4" strokeWidth={2} />
+          </button>
         </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="truncate text-sm font-semibold text-ink">{user?.name ?? '...'}</p>
-          <p className="truncate text-[11px] font-medium text-gray-500">
-            {isAdmin ? 'Administrador' : 'Operador'}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={logout}
-          aria-label="Sair"
-          title="Sair"
-          className="shrink-0 text-gray-500 hover:text-ink"
-        >
-          <LogOut className="size-4" strokeWidth={2} />
-        </button>
       </div>
     </aside>
   )
