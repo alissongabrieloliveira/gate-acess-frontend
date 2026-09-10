@@ -1,40 +1,30 @@
 import { useCallback, useEffect, useState } from 'react'
+import { consumeDeferredPrompt, getDeferredPrompt, subscribe } from '../lib/installPrompt'
 
-// Captura o `beforeinstallprompt` (Chrome/Edge/Android) pra oferecer um botão
-// de instalação próprio, em vez de depender do mini-infobar automático do
-// navegador (que só aparece sozinho conforme heurística de engajamento dele,
-// não é garantido aparecer num tablet novo configurado uma única vez — ver
-// claude.md seção 8). Sem suporte no Safari/iOS — lá não existe essa API,
-// instalação continua manual via "Adicionar à Tela de Início".
+// Oferece um botão de instalação próprio, em vez de depender só do
+// mini-infobar automático do navegador (que só aparece sozinho conforme
+// heurística de engajamento dele, não é garantido aparecer num tablet novo
+// configurado uma única vez — ver claude.md seção 8). Sem suporte no
+// Safari/iOS — lá não existe essa API, instalação continua manual via
+// "Adicionar à Tela de Início".
+//
+// A captura de verdade do evento vive em lib/installPrompt.js (registrada
+// em main.jsx, antes do primeiro render) — este hook só lê o estado atual
+// dessa store e se inscreve pra reagir a mudanças, não escuta o evento
+// diretamente (se escutasse aqui, perderia o evento sempre que ele disparar
+// antes do Sidebar montar, que é o caso comum: acontece ainda na tela de
+// login).
 export function useInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [prompt, setPrompt] = useState(getDeferredPrompt)
 
-  useEffect(() => {
-    function handleBeforeInstallPrompt(event) {
-      event.preventDefault()
-      setDeferredPrompt(event)
-    }
-    function handleAppInstalled() {
-      setDeferredPrompt(null)
-    }
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    window.addEventListener('appinstalled', handleAppInstalled)
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-      window.removeEventListener('appinstalled', handleAppInstalled)
-    }
-  }, [])
+  useEffect(() => subscribe(setPrompt), [])
 
   const promptInstall = useCallback(async () => {
-    if (!deferredPrompt) return
-    deferredPrompt.prompt()
-    await deferredPrompt.userChoice
-    // O evento capturado só serve pra um prompt — aceito ou recusado, o
-    // navegador só gera outro `beforeinstallprompt` num carregamento de
-    // página futuro, então descarta a referência aqui.
-    setDeferredPrompt(null)
-  }, [deferredPrompt])
+    const current = consumeDeferredPrompt()
+    if (!current) return
+    current.prompt()
+    await current.userChoice
+  }, [])
 
-  return { canInstall: !!deferredPrompt, promptInstall }
+  return { canInstall: !!prompt, promptInstall }
 }
