@@ -1,9 +1,11 @@
 import { Building2, Lock, User } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import SuggestionsDropdown from '../../components/SuggestionsDropdown'
+import { formatCityLabel, useCitySearch } from '../../hooks/useCitySearch'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { getErrorMessage } from '../../lib/errors'
-import { formatCpf, isValidCpf } from '../../lib/format'
+import { formatCnpj, formatCpf, formatPhone, isValidCnpj, isValidCpf } from '../../lib/format'
 import { RULES } from '../../lib/rules'
 import { useSettingsData } from './useSettingsData'
 
@@ -35,11 +37,6 @@ function Field({ label, value }) {
   )
 }
 
-function formatCnpj(value) {
-  if (!value || value.length !== 14) return value ?? '—'
-  return value.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5')
-}
-
 function formatAddress(company) {
   const parts = []
   if (company.street) {
@@ -48,6 +45,7 @@ function formatAddress(company) {
     parts.push(`${company.street}${number}${complement}`)
   }
   if (company.neighborhood) parts.push(company.neighborhood)
+  if (company.city_name) parts.push(`${company.city_name} - ${company.state ?? company.city_state_abbr}`)
   if (company.zip_code) parts.push(`CEP ${company.zip_code}`)
   return parts.length ? parts.join(' • ') : null
 }
@@ -65,12 +63,109 @@ export default function SettingsPage() {
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // "Dados da Empresa" — só admin edita (ver isAdmin abaixo); o form fica
+  // populado mesmo pra operador, só não é renderizado nesse caso (evita
+  // ramificar o `useEffect` de carga inicial por role, sem custo real).
+  const [corporateName, setCorporateName] = useState('')
+  const [tradeName, setTradeName] = useState('')
+  const [companyCnpj, setCompanyCnpj] = useState('')
+  const [zipCode, setZipCode] = useState('')
+  const [street, setStreet] = useState('')
+  const [addressNumber, setAddressNumber] = useState('')
+  const [complement, setComplement] = useState('')
+  const [neighborhood, setNeighborhood] = useState('')
+  const [ufFallback, setUfFallback] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [cityQuery, setCityQuery] = useState('')
+  const [selectedCityId, setSelectedCityId] = useState(null)
+  const [cityFocused, setCityFocused] = useState(false)
+  const [companyError, setCompanyError] = useState(null)
+  const [companySuccess, setCompanySuccess] = useState(false)
+  const [isSavingCompany, setIsSavingCompany] = useState(false)
+  const cityInputRef = useRef(null)
+
   useEffect(() => {
     if (!profile) return
     setName(profile.name ?? '')
     setCpf(formatCpf(profile.cpf))
     setEmail(profile.email ?? '')
   }, [profile])
+
+  useEffect(() => {
+    if (!company) return
+    setCorporateName(company.corporate_name ?? '')
+    setTradeName(company.trade_name ?? '')
+    setCompanyCnpj(formatCnpj(company.cnpj))
+    setZipCode(company.zip_code ?? '')
+    setStreet(company.street ?? '')
+    setAddressNumber(company.address_number ?? '')
+    setComplement(company.complement ?? '')
+    setNeighborhood(company.neighborhood ?? '')
+    setUfFallback(company.state ?? '')
+    setContactEmail(company.contact_email ?? '')
+    setContactPhone(formatPhone(company.contact_phone))
+    setSelectedCityId(company.city_id ?? null)
+    setCityQuery(
+      company.city_id && company.city_name
+        ? formatCityLabel({ name: company.city_name, stateAbbr: company.city_state_abbr })
+        : '',
+    )
+  }, [company])
+
+  const citySuggestions = useCitySearch(cityQuery)
+
+  function selectCity(city) {
+    setSelectedCityId(city.id)
+    setCityQuery(formatCityLabel(city))
+    cityInputRef.current?.blur()
+  }
+
+  const companyCnpjDigits = companyCnpj.replace(/\D/g, '')
+  const companyCnpjIsValid = isValidCnpj(companyCnpjDigits)
+
+  async function handleCompanySubmit(event) {
+    event.preventDefault()
+    setCompanyError(null)
+    setCompanySuccess(false)
+
+    if (!corporateName.trim()) {
+      setCompanyError('Razão social é obrigatória.')
+      return
+    }
+    if (!companyCnpjIsValid) {
+      setCompanyError('CNPJ inválido.')
+      return
+    }
+
+    setIsSavingCompany(true)
+    try {
+      await api.put('/companies/me', {
+        corporateName,
+        tradeName: tradeName || null,
+        cnpj: companyCnpjDigits,
+        zipCode: zipCode || null,
+        street: street || null,
+        addressNumber: addressNumber || null,
+        complement: complement || null,
+        neighborhood: neighborhood || null,
+        cityId: selectedCityId,
+        // Só envia UF manual quando não há cidade selecionada — com
+        // cityId preenchido, o trigger do Postgres (trg_companies_sync_state)
+        // sobrescreve `state` com o UF real da cidade escolhida de qualquer
+        // forma, então mandar os dois só confundiria sobre qual "venceu".
+        state: selectedCityId ? undefined : ufFallback || null,
+        contactEmail: contactEmail || null,
+        contactPhone: contactPhone.replace(/\D/g, '') || null,
+      })
+      await refetch()
+      setCompanySuccess(true)
+    } catch (err) {
+      setCompanyError(getErrorMessage(err, 'Não foi possível salvar os dados da empresa.'))
+    } finally {
+      setIsSavingCompany(false)
+    }
+  }
 
   const cpfDigits = cpf.replace(/\D/g, '')
   // CPF de users é obrigatório (diferente de people) — mesmo critério já
@@ -217,12 +312,12 @@ export default function SettingsPage() {
           </form>
         )}
 
-        {company && (
+        {company && !isAdmin && (
           <div className="flex shrink-0 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <CardHeader
               icon={<Building2 className="size-4 text-ink" strokeWidth={1.75} />}
               title="Dados da Empresa"
-              subtitle="Cadastro do tenant — gerenciado fora do aplicativo."
+              subtitle="Cadastro do tenant — edição restrita a administradores."
               badge={<span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-600">Somente leitura</span>}
             />
 
@@ -238,6 +333,154 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {company && isAdmin && (
+          <form
+            onSubmit={handleCompanySubmit}
+            className="flex shrink-0 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+          >
+            <CardHeader
+              icon={<Building2 className="size-4 text-ink" strokeWidth={1.75} />}
+              title="Dados da Empresa"
+              subtitle="Cadastro do tenant — como administrador, você pode editar."
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>Razão Social</label>
+                <input
+                  value={corporateName}
+                  onChange={(e) => setCorporateName(e.target.value)}
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>Nome Fantasia</label>
+                <input value={tradeName} onChange={(e) => setTradeName(e.target.value)} className={inputClass} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>CNPJ</label>
+                <input
+                  value={companyCnpj}
+                  onChange={(e) => setCompanyCnpj(formatCnpj(e.target.value))}
+                  required
+                  className={inputClass}
+                />
+                {companyCnpjDigits.length === 14 && !companyCnpjIsValid && (
+                  <p className="text-xs text-red-600">CNPJ inválido</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>E-mail de Contato</label>
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>Telefone de Contato</label>
+                <input
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(formatPhone(e.target.value))}
+                  className={inputClass}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>CEP</label>
+                <input
+                  value={zipCode}
+                  onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <hr className="border-gray-200" />
+
+            <div className="flex flex-col gap-3">
+              <p className="text-[13px] font-bold text-ink">Endereço</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>Rua</label>
+                  <input value={street} onChange={(e) => setStreet(e.target.value)} className={inputClass} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>Número</label>
+                  <input
+                    value={addressNumber}
+                    onChange={(e) => setAddressNumber(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>Complemento</label>
+                  <input value={complement} onChange={(e) => setComplement(e.target.value)} className={inputClass} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>Bairro</label>
+                  <input
+                    value={neighborhood}
+                    onChange={(e) => setNeighborhood(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="relative flex flex-col gap-1">
+                  <label className={labelClass}>Cidade</label>
+                  <input
+                    ref={cityInputRef}
+                    value={cityQuery}
+                    onChange={(e) => {
+                      setCityQuery(e.target.value)
+                      setSelectedCityId(null)
+                    }}
+                    onFocus={() => setCityFocused(true)}
+                    onBlur={() => setCityFocused(false)}
+                    placeholder="Buscar cidade..."
+                    className={inputClass}
+                  />
+                  {cityFocused && (
+                    <SuggestionsDropdown
+                      items={citySuggestions}
+                      onSelect={selectCity}
+                      renderItem={(city) => (
+                        <span className="text-[13px] font-semibold text-ink">{formatCityLabel(city)}</span>
+                      )}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>UF</label>
+                  <input
+                    value={ufFallback}
+                    onChange={(e) => setUfFallback(e.target.value.toUpperCase().slice(0, 2))}
+                    disabled={!!selectedCityId}
+                    placeholder={selectedCityId ? undefined : 'Ex.: SP'}
+                    className={`${inputClass} disabled:bg-gray-100 disabled:text-muted`}
+                  />
+                  {selectedCityId && (
+                    <p className="text-xs text-muted">Preenchido automaticamente pela cidade selecionada.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {companyError && <p className="text-sm text-red-600">{companyError}</p>}
+            {companySuccess && <p className="text-sm text-green-600">Dados da empresa salvos com sucesso.</p>}
+
+            <div className="flex items-center justify-end">
+              <button
+                type="submit"
+                disabled={isSavingCompany || !companyCnpjIsValid}
+                className="rounded-[10px] bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {isSavingCompany ? 'Salvando...' : 'Salvar Dados da Empresa'}
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </div>

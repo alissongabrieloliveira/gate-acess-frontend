@@ -1,7 +1,8 @@
 import { ChevronDown, ChevronUp, Search } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
 import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
+import { useCitySearch, formatCityLabel } from '../../hooks/useCitySearch'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
@@ -16,39 +17,6 @@ function StepBadge({ number }) {
       {number}
     </span>
   )
-}
-
-function formatCityLabel(city) {
-  return `${city.name} - ${city.stateAbbr}`
-}
-
-/**
- * `cities` tem ~5.570 municípios — grande demais pro padrão "carrega até 100
- * de uma vez e filtra no cliente" usado pra vehicles/people/gates neste
- * projeto. Por isso é busca de verdade no servidor (`GET /cities?search=`),
- * com debounce, em vez de um lookup client-side sobre uma amostra.
- */
-function useCitySearch(query) {
-  const [results, setResults] = useState([])
-
-  useEffect(() => {
-    const term = query.trim()
-    if (term.length < 2) {
-      setResults([])
-      return
-    }
-    const timer = setTimeout(async () => {
-      try {
-        const { data } = await api.get('/cities', { params: { search: term, limit: MAX_SUGGESTIONS } })
-        setResults(data.data)
-      } catch {
-        setResults([])
-      }
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [query])
-
-  return results
 }
 
 /**

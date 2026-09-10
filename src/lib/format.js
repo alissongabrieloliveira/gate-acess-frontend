@@ -87,6 +87,50 @@ export function formatPhone(value) {
 }
 
 /**
+ * Formata CNPJ pra exibição/digitação ("12345678000190" -> "12.345.678/0001-90").
+ * Igual ao CPF/telefone, formata progressivamente (não exige os 14 dígitos
+ * completos) e sempre parte dos dígitos crus — o backend normaliza sozinho
+ * (trigger normalize_company_cnpj, ver create_companies) antes de gravar.
+ */
+export function formatCnpj(value) {
+  const digits = String(value ?? '')
+    .replace(/\D/g, '')
+    .slice(0, 14)
+  if (digits.length <= 2) return digits
+  if (digits.length <= 5) return `${digits.slice(0, 2)}.${digits.slice(2)}`
+  if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`
+  if (digits.length <= 12) {
+    return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`
+  }
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`
+}
+
+/**
+ * Valida CNPJ pelo algoritmo padrão de dígito verificador (mod 11) — mesmo
+ * cálculo replicado em backend/src/db/migrations (função is_valid_cnpj do
+ * Postgres) e em backend/tests/helpers/factories.js#randomValidCnpj. Só dá
+ * feedback imediato no formulário sem round-trip; a validação que realmente
+ * vale é a do banco (CHECK constraint em companies.cnpj).
+ */
+export function isValidCnpj(value) {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  if (digits.length !== 14) return false
+  if (/^(\d)\1{13}$/.test(digits)) return false
+
+  const checkDigit = (base, weights) => {
+    const sum = base.split('').reduce((acc, char, index) => acc + Number(char) * weights[index], 0)
+    const remainder = sum % 11
+    return remainder < 2 ? 0 : 11 - remainder
+  }
+
+  const base = digits.slice(0, 12)
+  const digit1 = checkDigit(base, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+  const digit2 = checkDigit(base + digit1, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+
+  return digits === `${base}${digit1}${digit2}`
+}
+
+/**
  * Formata RG pra exibição/digitação no padrão mais comum ("12.345.678-9").
  * O último caractere aceita dígito ou "X" (dígito verificador de alguns
  * estados) — sem validação de formato por UF (RG não tem padrão nacional
