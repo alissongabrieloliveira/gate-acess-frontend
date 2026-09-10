@@ -4,9 +4,11 @@ import { api } from '../../lib/api'
 export const PAGE_SIZE = 8
 
 // Só as tabelas que realmente têm trigger de auditoria (trg_audit_*) — ver
-// migrations 20260903190500 a 20260903190900. `users`/`companies` não geram
-// audit_logs de propósito (comentário em audit-logs.service.js: LGPD, não
-// duplicar PII em claro na trilha).
+// migrations 20260903190500 a 20260903190900 e (companies)
+// 20260909210000_add_audit_trigger_to_companies. `users` continua fora de
+// propósito (comentário em audit-logs.service.js: LGPD, não duplicar PII em
+// claro na trilha) — `companies` não tem esse problema, nenhum campo seu é
+// criptografado.
 export const AUDITED_TABLES = [
   { value: 'people', label: 'Pessoas' },
   { value: 'vehicles', label: 'Veículos' },
@@ -14,6 +16,7 @@ export const AUDITED_TABLES = [
   { value: 'sectors', label: 'Setores' },
   { value: 'access_logs', label: 'Controle de Acessos' },
   { value: 'fleet_logs', label: 'Controle de Frota' },
+  { value: 'companies', label: 'Empresa' },
 ]
 
 export const TABLE_LABELS = Object.fromEntries(AUDITED_TABLES.map((t) => [t.value, t.label]))
