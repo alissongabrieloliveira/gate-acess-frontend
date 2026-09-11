@@ -100,33 +100,40 @@ export default function LoginLogsPage() {
       )}
 
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
-          <p className="w-[180px]">Data</p>
-          <p className="w-[180px]">Usuário</p>
-          <p className="w-[140px]">IP</p>
-          <p className="w-[280px]">Navegador / Dispositivo</p>
-          <p className="w-[100px] text-center">Status</p>
-        </div>
-
-        {isLoading ? null : logs.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-muted">Nenhum registro de login encontrado.</p>
-        ) : (
-          logs.map((log) => (
-            <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
-              <p className="w-[180px] text-sm text-gray-700">{formatDateTime(log.loginTime)}</p>
-              <p className="w-[180px] truncate text-sm text-gray-700">{log.userName}</p>
-              <p className="w-[140px] text-sm text-gray-700">{log.ipAddress ?? '—'}</p>
-              <p className="w-[280px] truncate text-sm text-gray-700" title={log.userAgent ?? ''}>
-                {log.userAgent ?? '—'}
-              </p>
-              <div className="flex w-[100px] items-center justify-center">
-                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_BADGES[log.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                  {STATUS_LABELS[log.status] ?? log.status}
-                </span>
-              </div>
+        {/* min-w preserva as larguras fixas das colunas (880px = soma delas)
+            em vez de espremê-las — abaixo disso a tabela rola na horizontal
+            (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[880px]">
+            <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
+              <p className="w-[180px]">Data</p>
+              <p className="w-[180px]">Usuário</p>
+              <p className="w-[140px]">IP</p>
+              <p className="w-[280px]">Navegador / Dispositivo</p>
+              <p className="w-[100px] text-center">Status</p>
             </div>
-          ))
-        )}
+
+            {isLoading ? null : logs.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-muted">Nenhum registro de login encontrado.</p>
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
+                  <p className="w-[180px] text-sm text-gray-700">{formatDateTime(log.loginTime)}</p>
+                  <p className="w-[180px] truncate text-sm text-gray-700">{log.userName}</p>
+                  <p className="w-[140px] text-sm text-gray-700">{log.ipAddress ?? '—'}</p>
+                  <p className="w-[280px] truncate text-sm text-gray-700" title={log.userAgent ?? ''}>
+                    {log.userAgent ?? '—'}
+                  </p>
+                  <div className="flex w-[100px] items-center justify-center">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${STATUS_BADGES[log.status] ?? 'bg-gray-100 text-gray-700'}`}>
+                      {STATUS_LABELS[log.status] ?? log.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-canvas px-5 py-3.5">
           <p className="text-[13px] text-muted">

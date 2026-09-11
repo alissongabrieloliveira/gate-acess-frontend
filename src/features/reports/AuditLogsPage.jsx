@@ -189,42 +189,49 @@ export default function AuditLogsPage() {
       )}
 
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
-          <p className="w-[180px]">Data</p>
-          <p className="w-[180px]">Usuário</p>
-          <p className="w-[160px]">Tabela</p>
-          <p className="w-[100px] text-center">Ação</p>
-          <p className="w-[90px] text-center">Registro</p>
-          <p className="w-[80px] text-center">Detalhe</p>
-        </div>
-
-        {isLoading ? null : logs.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-muted">Nenhum registro de auditoria encontrado.</p>
-        ) : (
-          logs.map((log) => (
-            <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
-              <p className="w-[180px] text-sm text-gray-700">{formatDateTime(log.changedAt)}</p>
-              <p className="w-[180px] truncate text-sm text-gray-700">{log.userName}</p>
-              <p className="w-[160px] text-sm text-gray-700">{TABLE_LABELS[log.tableName] ?? log.tableName}</p>
-              <div className="flex w-[100px] items-center justify-center">
-                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${ACTION_BADGES[log.action] ?? 'bg-gray-100 text-gray-700'}`}>
-                  {ACTION_LABELS[log.action] ?? log.action}
-                </span>
-              </div>
-              <p className="w-[90px] text-center text-sm text-gray-700">#{log.recordId}</p>
-              <div className="flex w-[80px] items-center justify-center">
-                <button
-                  type="button"
-                  title="Ver detalhes"
-                  onClick={() => setDetailLogId(log.id)}
-                  className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-                >
-                  <Eye className="size-4 text-gray-600" strokeWidth={1.75} />
-                </button>
-              </div>
+        {/* min-w preserva as larguras fixas das colunas (790px = soma delas)
+            em vez de espremê-las — abaixo disso a tabela rola na horizontal
+            (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[790px]">
+            <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
+              <p className="w-[180px]">Data</p>
+              <p className="w-[180px]">Usuário</p>
+              <p className="w-[160px]">Tabela</p>
+              <p className="w-[100px] text-center">Ação</p>
+              <p className="w-[90px] text-center">Registro</p>
+              <p className="w-[80px] text-center">Detalhe</p>
             </div>
-          ))
-        )}
+
+            {isLoading ? null : logs.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-muted">Nenhum registro de auditoria encontrado.</p>
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
+                  <p className="w-[180px] text-sm text-gray-700">{formatDateTime(log.changedAt)}</p>
+                  <p className="w-[180px] truncate text-sm text-gray-700">{log.userName}</p>
+                  <p className="w-[160px] text-sm text-gray-700">{TABLE_LABELS[log.tableName] ?? log.tableName}</p>
+                  <div className="flex w-[100px] items-center justify-center">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${ACTION_BADGES[log.action] ?? 'bg-gray-100 text-gray-700'}`}>
+                      {ACTION_LABELS[log.action] ?? log.action}
+                    </span>
+                  </div>
+                  <p className="w-[90px] text-center text-sm text-gray-700">#{log.recordId}</p>
+                  <div className="flex w-[80px] items-center justify-center">
+                    <button
+                      type="button"
+                      title="Ver detalhes"
+                      onClick={() => setDetailLogId(log.id)}
+                      className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                    >
+                      <Eye className="size-4 text-gray-600" strokeWidth={1.75} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-canvas px-5 py-3.5">
           <p className="text-[13px] text-muted">

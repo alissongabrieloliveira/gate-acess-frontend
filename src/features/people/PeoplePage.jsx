@@ -63,8 +63,8 @@ export default function PeoplePage() {
         <p className="text-sm text-muted">Cadastro de visitantes, prestadores e funcionários.</p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex w-[300px] items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-full items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm sm:w-[300px]">
           <Search className="size-4 shrink-0 text-subtle" strokeWidth={2} />
           <input
             type="text"
@@ -94,70 +94,77 @@ export default function PeoplePage() {
       )}
 
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
-          <p className="w-[220px]">Nome</p>
-          <p className="w-[130px]">CPF</p>
-          <p className="w-[110px]">Tipo</p>
-          <p className="w-[140px]">Telefone</p>
-          <p className="w-[140px]">Cadastrado em</p>
-          <p className="w-[100px]">Status</p>
-          <p className="w-[90px] text-center">Ações</p>
-        </div>
-
-        {isLoading ? null : people.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-muted">Nenhuma pessoa encontrada.</p>
-        ) : (
-          people.map((person) => (
-            <div key={person.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
-              <p className="w-[220px] truncate text-sm font-semibold text-ink">{person.name}</p>
-              <p className="w-[130px] text-sm text-gray-700">{person.cpf ? formatCpf(person.cpf) : '—'}</p>
-              <p className="w-[110px] text-sm text-gray-700">{PERSON_TYPE_LABELS[person.personType] ?? '—'}</p>
-              <p className="w-[140px] truncate text-sm text-gray-700">{person.phone ? formatPhone(person.phone) : '—'}</p>
-              <p className="w-[140px] text-[13px] text-gray-700">{formatDate(person.createdAt)}</p>
-              <div className="w-[100px]">
-                {person.isBlocked ? (
-                  <span
-                    title={person.blockReason ?? undefined}
-                    className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700"
-                  >
-                    Bloqueado
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
-                )}
-              </div>
-              <div className="flex w-[90px] items-center justify-center gap-2">
-                <button
-                  type="button"
-                  title="Editar"
-                  onClick={() => setEditingPerson(person)}
-                  className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-                >
-                  <Pencil className="size-4 text-gray-600" strokeWidth={1.75} />
-                </button>
-                {person.isBlocked ? (
-                  <button
-                    type="button"
-                    title="Desbloquear"
-                    onClick={() => handleUnblock(person)}
-                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-                  >
-                    <Unlock className="size-4 text-gray-600" strokeWidth={1.75} />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    title="Bloquear"
-                    onClick={() => setBlockingPerson(person)}
-                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-                  >
-                    <Lock className="size-4 text-gray-600" strokeWidth={1.75} />
-                  </button>
-                )}
-              </div>
+        {/* min-w preserva as larguras fixas das colunas (930px = soma delas)
+            em vez de espremê-las — abaixo disso a tabela rola na horizontal
+            (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[930px]">
+            <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
+              <p className="w-[220px]">Nome</p>
+              <p className="w-[130px]">CPF</p>
+              <p className="w-[110px]">Tipo</p>
+              <p className="w-[140px]">Telefone</p>
+              <p className="w-[140px]">Cadastrado em</p>
+              <p className="w-[100px]">Status</p>
+              <p className="w-[90px] text-center">Ações</p>
             </div>
-          ))
-        )}
+
+            {isLoading ? null : people.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-muted">Nenhuma pessoa encontrada.</p>
+            ) : (
+              people.map((person) => (
+                <div key={person.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
+                  <p className="w-[220px] truncate text-sm font-semibold text-ink">{person.name}</p>
+                  <p className="w-[130px] text-sm text-gray-700">{person.cpf ? formatCpf(person.cpf) : '—'}</p>
+                  <p className="w-[110px] text-sm text-gray-700">{PERSON_TYPE_LABELS[person.personType] ?? '—'}</p>
+                  <p className="w-[140px] truncate text-sm text-gray-700">{person.phone ? formatPhone(person.phone) : '—'}</p>
+                  <p className="w-[140px] text-[13px] text-gray-700">{formatDate(person.createdAt)}</p>
+                  <div className="w-[100px]">
+                    {person.isBlocked ? (
+                      <span
+                        title={person.blockReason ?? undefined}
+                        className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700"
+                      >
+                        Bloqueado
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
+                    )}
+                  </div>
+                  <div className="flex w-[90px] items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      title="Editar"
+                      onClick={() => setEditingPerson(person)}
+                      className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                    >
+                      <Pencil className="size-4 text-gray-600" strokeWidth={1.75} />
+                    </button>
+                    {person.isBlocked ? (
+                      <button
+                        type="button"
+                        title="Desbloquear"
+                        onClick={() => handleUnblock(person)}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                      >
+                        <Unlock className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        title="Bloquear"
+                        onClick={() => setBlockingPerson(person)}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                      >
+                        <Lock className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-canvas px-5 py-3.5">
           <p className="text-[13px] text-muted">

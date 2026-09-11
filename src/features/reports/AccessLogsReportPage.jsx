@@ -130,7 +130,7 @@ export default function AccessLogsReportPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex w-[260px] items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm">
+        <div className="flex w-full items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm sm:w-[260px]">
           <Search className="size-4 shrink-0 text-subtle" strokeWidth={2} />
           <input
             type="text"
@@ -184,53 +184,60 @@ export default function AccessLogsReportPage() {
       )}
 
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
-          <p className="w-[200px]">Nome do Visitante / CPF</p>
-          <p className="w-[100px] text-center">Placa</p>
-          <p className="w-[130px] text-center">Portão de Entrada</p>
-          <p className="w-[110px] text-center">Entrada</p>
-          <p className="w-[90px] text-center">KM Entrada</p>
-          <p className="w-[110px] text-center">Saída</p>
-          <p className="w-[90px] text-center">KM Saída</p>
-          <p className="w-[90px] text-center">Status</p>
-          <p className="w-[80px] text-center">Detalhe</p>
-        </div>
+        {/* min-w preserva as larguras fixas das colunas (1000px = soma delas)
+            em vez de espremê-las — abaixo disso a tabela rola na horizontal
+            (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[1000px]">
+            <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
+              <p className="w-[200px]">Nome do Visitante / CPF</p>
+              <p className="w-[100px] text-center">Placa</p>
+              <p className="w-[130px] text-center">Portão de Entrada</p>
+              <p className="w-[110px] text-center">Entrada</p>
+              <p className="w-[90px] text-center">KM Entrada</p>
+              <p className="w-[110px] text-center">Saída</p>
+              <p className="w-[90px] text-center">KM Saída</p>
+              <p className="w-[90px] text-center">Status</p>
+              <p className="w-[80px] text-center">Detalhe</p>
+            </div>
 
-        {isLoading ? null : logs.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-muted">Nenhum acesso encontrado para os filtros selecionados.</p>
-        ) : (
-          logs.map((log) => {
-            const badge = STATUS_BADGES[log.status] ?? { label: log.status, className: 'bg-gray-100 text-gray-700' }
-            return (
-              <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
-                <div className="flex w-[200px] flex-col gap-0.5">
-                  <p className="truncate text-sm font-semibold text-ink">{log.personName}</p>
-                  <p className="text-[11px] text-gray-500">{log.personCpf ? formatCpf(log.personCpf) : '—'}</p>
-                </div>
-                <p className="w-[100px] text-center text-sm font-bold text-ink">
-                  {log.vehiclePlate ? formatPlateInput(log.vehiclePlate) : '—'}
-                </p>
-                <p className="w-[130px] truncate text-center text-sm text-gray-700">{log.entryGateName}</p>
-                <p className="w-[110px] text-center text-sm text-gray-700">{formatDateTime(log.entryTime)}</p>
-                <p className="w-[90px] text-center text-sm text-gray-700">{formatKmEntry(log)}</p>
-                <p className="w-[110px] text-center text-sm text-subtle">{formatDateTime(log.exitTime)}</p>
-                <p className="w-[90px] text-center text-sm text-subtle">{formatKmExit(log)}</p>
-                <div className="flex w-[90px] items-center justify-center">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
-                </div>
-                <div className="flex w-[80px] items-center justify-center">
-                  <Link
-                    to={`/access-control/${log.id}`}
-                    title="Ver detalhes"
-                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-                  >
-                    <Eye className="size-4 text-gray-600" strokeWidth={1.75} />
-                  </Link>
-                </div>
-              </div>
-            )
-          })
-        )}
+            {isLoading ? null : logs.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-muted">Nenhum acesso encontrado para os filtros selecionados.</p>
+            ) : (
+              logs.map((log) => {
+                const badge = STATUS_BADGES[log.status] ?? { label: log.status, className: 'bg-gray-100 text-gray-700' }
+                return (
+                  <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
+                    <div className="flex w-[200px] flex-col gap-0.5">
+                      <p className="truncate text-sm font-semibold text-ink">{log.personName}</p>
+                      <p className="text-[11px] text-gray-500">{log.personCpf ? formatCpf(log.personCpf) : '—'}</p>
+                    </div>
+                    <p className="w-[100px] text-center text-sm font-bold text-ink">
+                      {log.vehiclePlate ? formatPlateInput(log.vehiclePlate) : '—'}
+                    </p>
+                    <p className="w-[130px] truncate text-center text-sm text-gray-700">{log.entryGateName}</p>
+                    <p className="w-[110px] text-center text-sm text-gray-700">{formatDateTime(log.entryTime)}</p>
+                    <p className="w-[90px] text-center text-sm text-gray-700">{formatKmEntry(log)}</p>
+                    <p className="w-[110px] text-center text-sm text-subtle">{formatDateTime(log.exitTime)}</p>
+                    <p className="w-[90px] text-center text-sm text-subtle">{formatKmExit(log)}</p>
+                    <div className="flex w-[90px] items-center justify-center">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
+                    </div>
+                    <div className="flex w-[80px] items-center justify-center">
+                      <Link
+                        to={`/access-control/${log.id}`}
+                        title="Ver detalhes"
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                      >
+                        <Eye className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-canvas px-5 py-3.5">
           <p className="text-[13px] text-muted">

@@ -59,8 +59,8 @@ export default function VehiclesPage() {
         <p className="text-sm text-muted">Cadastro de veículos de visitantes e da frota própria.</p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex w-[300px] items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-full items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm sm:w-[300px]">
           <Search className="size-4 shrink-0 text-subtle" strokeWidth={2} />
           <input
             type="text"
@@ -90,74 +90,81 @@ export default function VehiclesPage() {
       )}
 
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
-          <p className="w-[130px]">Placa</p>
-          <p className="w-[110px]">Identificação</p>
-          <p className="w-[110px]">Marca</p>
-          <p className="w-[110px]">Modelo</p>
-          <p className="w-[90px]">Cor</p>
-          <p className="w-[140px]">Cadastrado em</p>
-          <p className="w-[140px]">Atualizado em</p>
-          <p className="w-[100px]">Status</p>
-          <p className="w-[90px] text-center">Ações</p>
-        </div>
-
-        {isLoading ? null : vehicles.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-muted">Nenhum veículo encontrado.</p>
-        ) : (
-          vehicles.map((vehicle) => (
-            <div key={vehicle.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
-              <p className="w-[130px] text-sm font-bold text-ink">{formatPlateInput(vehicle.licensePlate)}</p>
-              <p className="w-[110px] text-sm text-gray-700">{vehicle.identificationCode ?? '—'}</p>
-              <p className="w-[110px] truncate text-sm text-gray-700">{vehicle.brand ?? '—'}</p>
-              <p className="w-[110px] truncate text-sm text-gray-700">{vehicle.model ?? '—'}</p>
-              <p className="w-[90px] truncate text-sm text-gray-700">{vehicle.color ?? '—'}</p>
-              <p className="w-[140px] text-[13px] text-gray-700">{formatDate(vehicle.createdAt)}</p>
-              <p className="w-[140px] text-[13px] text-gray-700">{formatDate(vehicle.updatedAt)}</p>
-              <div className="w-[100px]">
-                {vehicle.isBlocked ? (
-                  <span
-                    title={vehicle.blockReason ?? undefined}
-                    className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700"
-                  >
-                    Bloqueado
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
-                )}
-              </div>
-              <div className="flex w-[90px] items-center justify-center gap-2">
-                <button
-                  type="button"
-                  title="Editar"
-                  onClick={() => setEditingVehicle(vehicle)}
-                  className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-                >
-                  <Pencil className="size-4 text-gray-600" strokeWidth={1.75} />
-                </button>
-                {vehicle.isBlocked ? (
-                  <button
-                    type="button"
-                    title="Desbloquear"
-                    onClick={() => handleUnblock(vehicle)}
-                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-                  >
-                    <Unlock className="size-4 text-gray-600" strokeWidth={1.75} />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    title="Bloquear"
-                    onClick={() => setBlockingVehicle(vehicle)}
-                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-                  >
-                    <Lock className="size-4 text-gray-600" strokeWidth={1.75} />
-                  </button>
-                )}
-              </div>
+        {/* min-w preserva as larguras fixas das colunas (1020px = soma delas)
+            em vez de espremê-las — abaixo disso a tabela rola na horizontal
+            (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[1020px]">
+            <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
+              <p className="w-[130px]">Placa</p>
+              <p className="w-[110px]">Identificação</p>
+              <p className="w-[110px]">Marca</p>
+              <p className="w-[110px]">Modelo</p>
+              <p className="w-[90px]">Cor</p>
+              <p className="w-[140px]">Cadastrado em</p>
+              <p className="w-[140px]">Atualizado em</p>
+              <p className="w-[100px]">Status</p>
+              <p className="w-[90px] text-center">Ações</p>
             </div>
-          ))
-        )}
+
+            {isLoading ? null : vehicles.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-muted">Nenhum veículo encontrado.</p>
+            ) : (
+              vehicles.map((vehicle) => (
+                <div key={vehicle.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
+                  <p className="w-[130px] text-sm font-bold text-ink">{formatPlateInput(vehicle.licensePlate)}</p>
+                  <p className="w-[110px] text-sm text-gray-700">{vehicle.identificationCode ?? '—'}</p>
+                  <p className="w-[110px] truncate text-sm text-gray-700">{vehicle.brand ?? '—'}</p>
+                  <p className="w-[110px] truncate text-sm text-gray-700">{vehicle.model ?? '—'}</p>
+                  <p className="w-[90px] truncate text-sm text-gray-700">{vehicle.color ?? '—'}</p>
+                  <p className="w-[140px] text-[13px] text-gray-700">{formatDate(vehicle.createdAt)}</p>
+                  <p className="w-[140px] text-[13px] text-gray-700">{formatDate(vehicle.updatedAt)}</p>
+                  <div className="w-[100px]">
+                    {vehicle.isBlocked ? (
+                      <span
+                        title={vehicle.blockReason ?? undefined}
+                        className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700"
+                      >
+                        Bloqueado
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
+                    )}
+                  </div>
+                  <div className="flex w-[90px] items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      title="Editar"
+                      onClick={() => setEditingVehicle(vehicle)}
+                      className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                    >
+                      <Pencil className="size-4 text-gray-600" strokeWidth={1.75} />
+                    </button>
+                    {vehicle.isBlocked ? (
+                      <button
+                        type="button"
+                        title="Desbloquear"
+                        onClick={() => handleUnblock(vehicle)}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                      >
+                        <Unlock className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        title="Bloquear"
+                        onClick={() => setBlockingVehicle(vehicle)}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                      >
+                        <Lock className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-canvas px-5 py-3.5">
           <p className="text-[13px] text-muted">

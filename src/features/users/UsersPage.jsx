@@ -109,8 +109,8 @@ export default function UsersPage() {
         <p className="text-sm text-muted">Cadastro de operadores do sistema.</p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex w-[300px] items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-full items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm sm:w-[300px]">
           <Search className="size-4 shrink-0 text-subtle" strokeWidth={2} />
           <input
             type="text"
@@ -140,91 +140,98 @@ export default function UsersPage() {
       )}
 
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
-          <p className="w-[200px]">Nome</p>
-          <p className="w-[130px]">CPF</p>
-          <p className="w-[220px]">E-mail</p>
-          <p className="w-[110px]">Perfil</p>
-          <p className="w-[140px]">Cadastrado em</p>
-          <p className="w-[90px]">Status</p>
-          <p className="w-[120px] text-center">Ações</p>
-        </div>
+        {/* min-w preserva as larguras fixas das colunas (1010px = soma delas)
+            em vez de espremê-las — abaixo disso a tabela rola na horizontal
+            (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[1010px]">
+            <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
+              <p className="w-[200px]">Nome</p>
+              <p className="w-[130px]">CPF</p>
+              <p className="w-[220px]">E-mail</p>
+              <p className="w-[110px]">Perfil</p>
+              <p className="w-[140px]">Cadastrado em</p>
+              <p className="w-[90px]">Status</p>
+              <p className="w-[120px] text-center">Ações</p>
+            </div>
 
-        {isLoading ? null : error ? null : users.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-muted">Nenhum usuário encontrado.</p>
-        ) : (
-          users.map((row) => {
-            const isSelf = String(row.id) === String(currentUser?.userId)
-            const isAdmin = !!(row.rules & RULES.ADMIN)
-            return (
-              <div key={row.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
-                <p className="w-[200px] truncate text-sm font-semibold text-ink">
-                  {row.name}
-                  {isSelf && <span className="ml-1.5 text-xs font-normal text-subtle">(você)</span>}
-                </p>
-                <p className="w-[130px] text-sm text-gray-700">{row.cpf ? formatCpf(row.cpf) : '—'}</p>
-                <p className="w-[220px] truncate text-sm text-gray-700">{row.email}</p>
-                <div className="w-[110px]">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                      isAdmin ? 'bg-brand-50 text-brand' : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {isAdmin ? 'Administrador' : 'Operador'}
-                  </span>
-                </div>
-                <p className="w-[140px] text-[13px] text-gray-700">{formatDate(row.createdAt)}</p>
-                <div className="flex w-[90px] flex-col items-start gap-1">
-                  {row.isActive ? (
-                    <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
-                  ) : (
-                    <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">Inativo</span>
-                  )}
-                  {row.mustChangePassword && (
-                    <span
-                      title="Ainda não trocou a senha temporária definida na criação"
-                      className="text-[10px] font-semibold text-amber-600"
-                    >
-                      Senha pendente
-                    </span>
-                  )}
-                </div>
-                <div className="flex w-[120px] items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    title="Editar"
-                    onClick={() => setEditingUser(row)}
-                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
-                  >
-                    <Pencil className="size-4 text-gray-600" strokeWidth={1.75} />
-                  </button>
-                  <button
-                    type="button"
-                    title={isSelf ? 'Não é possível desativar seu próprio usuário' : row.isActive ? 'Desativar' : 'Ativar'}
-                    disabled={isSelf}
-                    onClick={() => handleToggleActive(row)}
-                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {row.isActive ? (
-                      <Lock className="size-4 text-gray-600" strokeWidth={1.75} />
-                    ) : (
-                      <Unlock className="size-4 text-gray-600" strokeWidth={1.75} />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    title={isSelf ? 'Não é possível remover seu próprio usuário' : 'Remover'}
-                    disabled={isSelf}
-                    onClick={() => setRemovingUser(row)}
-                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Trash2 className="size-4 text-gray-600" strokeWidth={1.75} />
-                  </button>
-                </div>
-              </div>
-            )
-          })
-        )}
+            {isLoading ? null : error ? null : users.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-muted">Nenhum usuário encontrado.</p>
+            ) : (
+              users.map((row) => {
+                const isSelf = String(row.id) === String(currentUser?.userId)
+                const isAdmin = !!(row.rules & RULES.ADMIN)
+                return (
+                  <div key={row.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
+                    <p className="w-[200px] truncate text-sm font-semibold text-ink">
+                      {row.name}
+                      {isSelf && <span className="ml-1.5 text-xs font-normal text-subtle">(você)</span>}
+                    </p>
+                    <p className="w-[130px] text-sm text-gray-700">{row.cpf ? formatCpf(row.cpf) : '—'}</p>
+                    <p className="w-[220px] truncate text-sm text-gray-700">{row.email}</p>
+                    <div className="w-[110px]">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                          isAdmin ? 'bg-brand-50 text-brand' : 'bg-gray-100 text-gray-600'
+                        }`}
+                      >
+                        {isAdmin ? 'Administrador' : 'Operador'}
+                      </span>
+                    </div>
+                    <p className="w-[140px] text-[13px] text-gray-700">{formatDate(row.createdAt)}</p>
+                    <div className="flex w-[90px] flex-col items-start gap-1">
+                      {row.isActive ? (
+                        <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
+                      ) : (
+                        <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">Inativo</span>
+                      )}
+                      {row.mustChangePassword && (
+                        <span
+                          title="Ainda não trocou a senha temporária definida na criação"
+                          className="text-[10px] font-semibold text-amber-600"
+                        >
+                          Senha pendente
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex w-[120px] items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        title="Editar"
+                        onClick={() => setEditingUser(row)}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                      >
+                        <Pencil className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        type="button"
+                        title={isSelf ? 'Não é possível desativar seu próprio usuário' : row.isActive ? 'Desativar' : 'Ativar'}
+                        disabled={isSelf}
+                        onClick={() => handleToggleActive(row)}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {row.isActive ? (
+                          <Lock className="size-4 text-gray-600" strokeWidth={1.75} />
+                        ) : (
+                          <Unlock className="size-4 text-gray-600" strokeWidth={1.75} />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        title={isSelf ? 'Não é possível remover seu próprio usuário' : 'Remover'}
+                        disabled={isSelf}
+                        onClick={() => setRemovingUser(row)}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
 
         <div className="flex items-center justify-between border-t border-gray-200 bg-canvas px-5 py-3.5">
           <p className="text-[13px] text-muted">
