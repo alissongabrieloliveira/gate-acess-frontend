@@ -17,6 +17,7 @@ import {
   Truck,
   User,
   Users,
+  X,
 } from 'lucide-react'
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
@@ -44,7 +45,12 @@ const subNavItemClass = ({ isActive }) =>
     isActive ? 'bg-brand-50 font-semibold text-brand' : 'font-medium text-gray-700 hover:bg-gray-100'
   }`
 
-export default function Sidebar() {
+// Abaixo de `lg` (telas de tablet/celular) a sidebar vira uma gaveta
+// sobreposta (fixed + translate-x), fechada por padrão — `isOpen`/`onClose`
+// vêm do Layout, que também é quem renderiza o botão de abrir (hambúrguer)
+// e o backdrop. A partir de `lg` ela volta a ser a coluna estática de sempre,
+// ignorando `isOpen` (por isso o `lg:translate-x-0` fixo).
+export default function Sidebar({ isOpen, onClose }) {
   const { user, logout } = useAuth()
   const { canInstall, promptInstall } = useInstallPrompt()
   const location = useLocation()
@@ -66,21 +72,45 @@ export default function Sidebar() {
     : '--'
 
   return (
-    <aside className="flex h-full w-[260px] shrink-0 flex-col justify-between border-r border-gray-200 bg-canvas px-4 py-6">
+    <aside
+      className={`fixed inset-y-0 left-0 z-40 flex h-full w-[260px] shrink-0 -translate-x-full flex-col justify-between border-r border-gray-200 bg-canvas px-4 py-6 transition-transform duration-200 lg:static lg:translate-x-0 ${
+        isOpen ? 'translate-x-0' : ''
+      }`}
+    >
       <div className="flex flex-col gap-8">
-        <div className="flex items-center gap-2.5 pl-2">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-brand-50">
-            <ShieldCheck className="size-5 text-brand" strokeWidth={2.25} />
+        <div className="flex items-center justify-between gap-2.5 pl-2">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-brand-50">
+              <ShieldCheck className="size-5 text-brand" strokeWidth={2.25} />
+            </div>
+            <div className="flex flex-col">
+              <p className="text-lg font-extrabold leading-tight text-ink">PORTARIA</p>
+              <p className="text-[11px] font-semibold uppercase leading-tight text-muted">
+                Controle de Acesso
+              </p>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <p className="text-lg font-extrabold leading-tight text-ink">PORTARIA</p>
-            <p className="text-[11px] font-semibold uppercase leading-tight text-muted">
-              Controle de Acesso
-            </p>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar menu"
+            className="shrink-0 text-muted hover:text-ink lg:hidden"
+          >
+            <X className="size-5" strokeWidth={2} />
+          </button>
         </div>
 
-        <nav className="flex flex-col gap-1">
+        {/* Fecha a gaveta ao navegar (delegado no container em vez de em
+            cada NavLink) — só reage a cliques que caem dentro de um <a>,
+            então os botões de acordeão (Cadastros/Relatórios) não fecham a
+            gaveta, só a navegação de fato. Não tem efeito em telas `lg+`,
+            onde a gaveta nem existe. */}
+        <nav
+          className="flex flex-col gap-1"
+          onClick={(event) => {
+            if (event.target.closest('a')) onClose?.()
+          }}
+        >
           <NavLink to="/" end className={navItemClass}>
             <LayoutGrid className="size-[18px]" strokeWidth={2} />
             Dashboard

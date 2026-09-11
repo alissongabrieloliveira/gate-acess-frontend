@@ -2,7 +2,7 @@ import { Bell, ChevronDown, Search, User } from 'lucide-react'
 
 export function TopBarControls({ gates, selectedGateId, onGateChange }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <div className="relative">
         <select
           value={selectedGateId}
@@ -19,8 +19,9 @@ export function TopBarControls({ gates, selectedGateId, onGateChange }) {
         <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted" />
       </div>
 
-      {/* Sem backend de busca full-text — presente visualmente, sem comportamento (mesmo padrão do "Esqueci a senha" da tela de login). */}
-      <div className="flex w-[260px] items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm">
+      {/* Sem backend de busca full-text — presente visualmente, sem comportamento (mesmo padrão do "Esqueci a senha" da tela de login).
+          Escondida abaixo de `lg`: como não faz nada de verdade, não vale gastar a largura já apertada do tablet com ela. */}
+      <div className="hidden w-[260px] items-center gap-2 rounded-[10px] border border-gray-200 bg-white px-3.5 py-2.5 shadow-sm lg:flex">
         <Search className="size-4 shrink-0 text-subtle" strokeWidth={2} />
         <input
           type="text"
@@ -47,8 +48,8 @@ export function TopBarControls({ gates, selectedGateId, onGateChange }) {
 
 export default function TopBar({ title, gates, selectedGateId, onGateChange }) {
   return (
-    <div className="flex items-center justify-between py-2">
-      <h1 className="text-[28px] font-bold text-ink">{title}</h1>
+    <div className="flex flex-wrap items-center justify-between gap-3 py-2">
+      <h1 className="text-2xl font-bold text-ink lg:text-[28px]">{title}</h1>
       <TopBarControls gates={gates} selectedGateId={selectedGateId} onGateChange={onGateChange} />
     </div>
   )

@@ -87,7 +87,7 @@ export default function DashboardPage() {
         onGateChange={setSelectedGateId}
       />
 
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
         <KpiCard
           label="Acessos Hoje"
           value={data.todayCount}
@@ -134,7 +134,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="flex items-start gap-6">
+      <div className="flex flex-col items-stretch gap-6 lg:flex-row lg:items-start">
         <div className="flex flex-1 flex-col rounded-xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between border-b border-gray-200 p-5">
             <p className="text-base font-bold text-ink">Últimos Acessos</p>
@@ -171,7 +171,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="flex w-[440px] shrink-0 flex-col gap-6 rounded-xl border border-gray-200 bg-white p-6">
+        <div className="flex w-full flex-col gap-6 rounded-xl border border-gray-200 bg-white p-6 lg:w-[440px] lg:shrink-0">
           <p className="text-base font-bold text-ink">Atividade Semanal</p>
           <div className="flex flex-col items-center rounded-xl border border-gray-200 bg-canvas p-4">
             <div className="flex h-[180px] w-full items-end justify-between">
@@ -195,9 +195,9 @@ export default function DashboardPage() {
         {postsBreakdown.length === 0 ? (
           <p className="text-sm text-muted">Nenhum acesso registrado nos últimos 7 dias.</p>
         ) : (
-          <div className="flex items-start gap-8">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-5 lg:flex lg:items-start">
             {postsBreakdown.map((post) => (
-              <div key={post.name} className="flex flex-1 flex-col gap-1.5">
+              <div key={post.name} className="flex flex-col gap-1.5 lg:flex-1">
                 <div className="flex items-center justify-between text-sm font-semibold">
                   <p className="text-ink">{post.name}</p>
                   <p className="text-muted">
