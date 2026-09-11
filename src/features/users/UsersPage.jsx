@@ -150,9 +150,7 @@ export default function UsersPage() {
           <p className="w-[120px] text-center">Ações</p>
         </div>
 
-        {isLoading ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : error ? null : users.length === 0 ? (
+        {isLoading ? null : error ? null : users.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhum usuário encontrado.</p>
         ) : (
           users.map((row) => {

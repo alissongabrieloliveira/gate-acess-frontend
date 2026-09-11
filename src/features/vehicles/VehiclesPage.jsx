@@ -102,9 +102,7 @@ export default function VehiclesPage() {
           <p className="w-[90px] text-center">Ações</p>
         </div>
 
-        {isLoading ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : vehicles.length === 0 ? (
+        {isLoading ? null : vehicles.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhum veículo encontrado.</p>
         ) : (
           vehicles.map((vehicle) => (

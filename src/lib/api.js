@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { requestEnded, requestStarted } from './loadingBar'
 
 const baseURL = import.meta.env.VITE_API_URL ?? 'http://localhost:3333/api/v1'
 
@@ -35,6 +36,7 @@ export function setOnUnauthorized(handler) {
 }
 
 api.interceptors.request.use((config) => {
+  requestStarted()
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`
   }
@@ -44,8 +46,12 @@ api.interceptors.request.use((config) => {
 let refreshPromise = null
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    requestEnded()
+    return response
+  },
   async (error) => {
+    requestEnded()
     const { config, response } = error
     const isAuthRoute = config?.url?.startsWith('/auth/')
 

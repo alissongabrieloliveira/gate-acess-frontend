@@ -44,9 +44,7 @@ export default function BlockedPeopleReportPage() {
           <p className="w-[160px]">Bloqueado/Atualizado em</p>
         </div>
 
-        {isLoading ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : people.length === 0 ? (
+        {isLoading ? null : people.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhuma pessoa bloqueada no momento.</p>
         ) : (
           people.map((person) => (

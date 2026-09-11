@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../components/Layout'
+import TopProgressBar from '../components/TopProgressBar'
 import AccessControlPage from '../features/access-control/AccessControlPage'
 import AccessLogDetailPage from '../features/access-control/AccessLogDetailPage'
 import AccessLogEditPage from '../features/access-control/AccessLogEditPage'
@@ -28,42 +29,45 @@ import ProtectedRoute from './ProtectedRoute'
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
+    <>
+      <TopProgressBar />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-          <Route element={<ProtectedRoute />}>
-            {/* Fora do <Layout> de propósito — sem sidebar, mesma casca visual do
-                login (AuthLayout), já que o usuário ainda não tem acesso liberado
-                ao resto do app enquanto mustChangePassword for true. */}
-            <Route path="/change-password" element={<ChangePasswordPage />} />
-            <Route element={<Layout />}>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/access-control" element={<AccessControlPage />} />
-              <Route path="/access-control/:id" element={<AccessLogDetailPage />} />
-              <Route path="/access-control/:id/edit" element={<AccessLogEditPage />} />
-              <Route path="/fleet" element={<FleetPage />} />
-              <Route path="/fleet/:id" element={<FleetLogDetailPage />} />
-              <Route path="/fleet/:id/edit" element={<FleetLogEditPage />} />
-              <Route path="/vehicles" element={<VehiclesPage />} />
-              <Route path="/people" element={<PeoplePage />} />
-              <Route path="/users" element={<UsersPage />} />
-              <Route path="/control-posts" element={<ControlPostsPage />} />
-              <Route path="/sectors" element={<SectorsPage />} />
-              <Route path="/reports/access-logs" element={<AccessLogsReportPage />} />
-              <Route path="/reports/fleet-logs" element={<FleetLogsReportPage />} />
-              <Route path="/reports/blocked-people" element={<BlockedPeopleReportPage />} />
-              <Route path="/reports/sector-visits" element={<SectorVisitsReportPage />} />
-              <Route path="/reports/audit-logs" element={<AuditLogsPage />} />
-              <Route path="/reports/login-logs" element={<LoginLogsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+            <Route element={<ProtectedRoute />}>
+              {/* Fora do <Layout> de propósito — sem sidebar, mesma casca visual do
+                  login (AuthLayout), já que o usuário ainda não tem acesso liberado
+                  ao resto do app enquanto mustChangePassword for true. */}
+              <Route path="/change-password" element={<ChangePasswordPage />} />
+              <Route element={<Layout />}>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/access-control" element={<AccessControlPage />} />
+                <Route path="/access-control/:id" element={<AccessLogDetailPage />} />
+                <Route path="/access-control/:id/edit" element={<AccessLogEditPage />} />
+                <Route path="/fleet" element={<FleetPage />} />
+                <Route path="/fleet/:id" element={<FleetLogDetailPage />} />
+                <Route path="/fleet/:id/edit" element={<FleetLogEditPage />} />
+                <Route path="/vehicles" element={<VehiclesPage />} />
+                <Route path="/people" element={<PeoplePage />} />
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/control-posts" element={<ControlPostsPage />} />
+                <Route path="/sectors" element={<SectorsPage />} />
+                <Route path="/reports/access-logs" element={<AccessLogsReportPage />} />
+                <Route path="/reports/fleet-logs" element={<FleetLogsReportPage />} />
+                <Route path="/reports/blocked-people" element={<BlockedPeopleReportPage />} />
+                <Route path="/reports/sector-visits" element={<SectorVisitsReportPage />} />
+                <Route path="/reports/audit-logs" element={<AuditLogsPage />} />
+                <Route path="/reports/login-logs" element={<LoginLogsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </>
   )
 }

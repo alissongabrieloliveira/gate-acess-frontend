@@ -42,7 +42,7 @@ function SectionHeader({ number, icon, title }) {
 export default function FleetLogEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isLoading, error, detail } = useFleetLogDetail(id)
+  const { error, detail } = useFleetLogDetail(id)
   const [gatesList, setGatesList] = useState([])
   const [selectedGateId, setSelectedGateId] = useState('all')
 
@@ -139,7 +139,6 @@ export default function FleetLogEditPage() {
         <TopBarControls gates={gatesList} selectedGateId={selectedGateId} onGateChange={setSelectedGateId} />
       </div>
 
-      {isLoading && <p className="text-sm text-muted">Carregando...</p>}
       {error && (
         <p className="text-sm text-red-600">
           Não foi possível carregar este registro. Ele pode não existir ou ter sido removido.

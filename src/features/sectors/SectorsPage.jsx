@@ -105,9 +105,7 @@ export default function SectorsPage() {
           {isAdmin && <p className="w-[90px] text-center">Ações</p>}
         </div>
 
-        {isLoading ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : error ? null : sectors.length === 0 ? (
+        {isLoading ? null : error ? null : sectors.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhum setor encontrado.</p>
         ) : (
           sectors.map((sector) => (

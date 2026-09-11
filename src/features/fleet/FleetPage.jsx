@@ -146,9 +146,7 @@ export default function FleetPage() {
             quando ON_TRIP) — mesma conta já usada em Controle de Acessos: 2×32px
             + 8px de gap = 72px, com folga dentro dos 90px. */}
 
-        {isLoading || !lookups ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : enrichedLogs.length === 0 ? (
+        {isLoading || !lookups ? null : enrichedLogs.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhum registro de frota encontrado.</p>
         ) : (
           enrichedLogs.map((log) => {

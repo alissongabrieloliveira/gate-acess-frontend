@@ -99,9 +99,7 @@ export default function SectorVisitsReportPage() {
           <p className="text-base font-bold text-ink">{total}</p>
         </div>
 
-        {isLoading ? (
-          <p className="text-sm text-muted">Carregando...</p>
-        ) : breakdown.length === 0 ? (
+        {isLoading ? null : breakdown.length === 0 ? (
           <p className="text-sm text-muted">Nenhum setor cadastrado.</p>
         ) : (
           <div className="flex flex-col gap-3">

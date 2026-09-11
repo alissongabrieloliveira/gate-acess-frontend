@@ -50,7 +50,7 @@ function Field({ label, value }) {
 export default function FleetLogDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isLoading, error, detail, refetch } = useFleetLogDetail(id)
+  const { error, detail, refetch } = useFleetLogDetail(id)
   const [gatesList, setGatesList] = useState([])
   const [selectedGateId, setSelectedGateId] = useState('all')
   const [isReturnDrawerOpen, setIsReturnDrawerOpen] = useState(false)
@@ -91,7 +91,6 @@ export default function FleetLogDetailPage() {
         <TopBarControls gates={gatesList} selectedGateId={selectedGateId} onGateChange={setSelectedGateId} />
       </div>
 
-      {isLoading && <p className="text-sm text-muted">Carregando...</p>}
       {error && (
         <p className="text-sm text-red-600">
           Não foi possível carregar este registro. Ele pode não existir ou ter sido removido.

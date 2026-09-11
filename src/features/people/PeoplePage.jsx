@@ -104,9 +104,7 @@ export default function PeoplePage() {
           <p className="w-[90px] text-center">Ações</p>
         </div>
 
-        {isLoading ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : people.length === 0 ? (
+        {isLoading ? null : people.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhuma pessoa encontrada.</p>
         ) : (
           people.map((person) => (

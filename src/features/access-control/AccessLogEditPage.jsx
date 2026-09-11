@@ -32,7 +32,7 @@ function SectionHeader({ number, icon, title }) {
 export default function AccessLogEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isLoading, error, detail } = useAccessLogDetail(id)
+  const { error, detail } = useAccessLogDetail(id)
   const [gatesList, setGatesList] = useState([])
   const [selectedGateId, setSelectedGateId] = useState('all')
   const [name, setName] = useState('')
@@ -116,7 +116,6 @@ export default function AccessLogEditPage() {
         <TopBarControls gates={gatesList} selectedGateId={selectedGateId} onGateChange={setSelectedGateId} />
       </div>
 
-      {isLoading && <p className="text-sm text-muted">Carregando...</p>}
       {error && (
         <p className="text-sm text-red-600">
           Não foi possível carregar este registro. Ele pode não existir ou ter sido removido.

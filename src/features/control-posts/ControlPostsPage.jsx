@@ -106,9 +106,7 @@ export default function ControlPostsPage() {
           {isAdmin && <p className="w-[90px] text-center">Ações</p>}
         </div>
 
-        {isLoading ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : error ? null : gates.length === 0 ? (
+        {isLoading ? null : error ? null : gates.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhum posto de controle encontrado.</p>
         ) : (
           gates.map((gate) => (

@@ -145,9 +145,7 @@ export default function AccessControlPage() {
           <p className="w-[120px] text-center">Ações</p>
         </div>
 
-        {isLoading || !lookups ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : enrichedLogs.length === 0 ? (
+        {isLoading || !lookups ? null : enrichedLogs.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhum acesso encontrado.</p>
         ) : (
           enrichedLogs.map((log) => {

@@ -108,9 +108,7 @@ export default function LoginLogsPage() {
           <p className="w-[100px] text-center">Status</p>
         </div>
 
-        {isLoading ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : logs.length === 0 ? (
+        {isLoading ? null : logs.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhum registro de login encontrado.</p>
         ) : (
           logs.map((log) => (

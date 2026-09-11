@@ -41,7 +41,7 @@ function Field({ label, value }) {
 export default function AccessLogDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isLoading, error, detail, refetch } = useAccessLogDetail(id)
+  const { error, detail, refetch } = useAccessLogDetail(id)
   const [gatesList, setGatesList] = useState([])
   const [selectedGateId, setSelectedGateId] = useState('all')
   const [isExitDrawerOpen, setIsExitDrawerOpen] = useState(false)
@@ -100,7 +100,6 @@ export default function AccessLogDetailPage() {
         <TopBarControls gates={gatesList} selectedGateId={selectedGateId} onGateChange={setSelectedGateId} />
       </div>
 
-      {isLoading && <p className="text-sm text-muted">Carregando...</p>}
       {error && (
         <p className="text-sm text-red-600">
           Não foi possível carregar este registro. Ele pode não existir ou ter sido removido.

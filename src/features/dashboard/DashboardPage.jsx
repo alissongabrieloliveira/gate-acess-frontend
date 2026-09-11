@@ -67,7 +67,7 @@ export default function DashboardPage() {
   }, [data])
 
   if (isLoading) {
-    return <p className="text-sm text-muted">Carregando dashboard...</p>
+    return null
   }
 
   if (error) {

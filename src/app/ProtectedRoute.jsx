@@ -8,7 +8,7 @@ export default function ProtectedRoute() {
   const location = useLocation()
 
   if (isLoading) {
-    return <div className="flex min-h-screen items-center justify-center text-slate-500">Carregando...</div>
+    return null
   }
 
   if (!isAuthenticated) {

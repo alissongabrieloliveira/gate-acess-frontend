@@ -52,7 +52,7 @@ function formatAddress(company) {
 
 export default function SettingsPage() {
   const { refreshUser } = useAuth()
-  const { isLoading, error, profile, company, refetch } = useSettingsData()
+  const { error, profile, company, refetch } = useSettingsData()
 
   const [name, setName] = useState('')
   const [cpf, setCpf] = useState('')
@@ -215,7 +215,6 @@ export default function SettingsPage() {
         <p className="text-[13px] text-muted">Gerencie seu perfil de acesso e veja os dados da empresa.</p>
       </div>
 
-      {isLoading && <p className="text-sm text-muted">Carregando...</p>}
       {error && (
         <p className="text-sm text-red-600">Não foi possível carregar suas informações. Tente novamente mais tarde.</p>
       )}

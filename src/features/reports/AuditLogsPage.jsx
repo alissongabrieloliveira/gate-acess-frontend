@@ -76,9 +76,7 @@ function AuditLogDetailModal({ logId, onClose }) {
 
   return (
     <Modal title="Detalhe da Alteração" onClose={onClose} width="max-w-2xl">
-      {state.isLoading ? (
-        <p className="text-sm text-muted">Carregando...</p>
-      ) : state.error ? (
+      {state.isLoading ? null : state.error ? (
         <p className="text-sm text-red-600">
           {getErrorMessage(state.error, 'Não foi possível carregar o detalhe deste registro.')}
         </p>
@@ -200,9 +198,7 @@ export default function AuditLogsPage() {
           <p className="w-[80px] text-center">Detalhe</p>
         </div>
 
-        {isLoading ? (
-          <p className="px-5 py-8 text-sm text-muted">Carregando...</p>
-        ) : logs.length === 0 ? (
+        {isLoading ? null : logs.length === 0 ? (
           <p className="px-5 py-8 text-sm text-muted">Nenhum registro de auditoria encontrado.</p>
         ) : (
           logs.map((log) => (
