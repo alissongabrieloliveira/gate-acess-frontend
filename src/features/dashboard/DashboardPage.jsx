@@ -135,39 +135,47 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex flex-col items-stretch gap-6 lg:flex-row lg:items-start">
-        <div className="flex flex-1 flex-col rounded-xl border border-gray-200 bg-white">
+        <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between border-b border-gray-200 p-5">
             <p className="text-base font-bold text-ink">Últimos Acessos</p>
             <span className="text-[13px] font-semibold text-brand">Ver todos os registros</span>
           </div>
-          <div className="flex bg-canvas px-4 py-3 text-xs font-bold text-muted">
-            <p className="flex-1">Nome</p>
-            <p className="w-[120px]">Tipo</p>
-            <p className="w-[100px]">Placa</p>
-            <p className="w-[100px]">Status</p>
-          </div>
-          <div className="flex flex-col">
-            {recentLogs.length === 0 && (
-              <p className="px-4 py-6 text-sm text-muted">Nenhum acesso registrado nos últimos 7 dias.</p>
-            )}
-            {recentLogs.map((log) => {
-              const badge = STATUS_BADGES[log.status] ?? { label: log.status, className: 'bg-gray-100 text-gray-700' }
-              return (
-                <div key={log.id} className="flex items-center border-b border-gray-200 px-4 py-3.5 last:border-b-0">
-                  <div className="flex flex-1 flex-col gap-0.5">
-                    <p className="truncate text-sm font-semibold text-ink">{log.name}</p>
-                    {log.destination && <p className="text-xs text-muted">Destino: {log.destination}</p>}
-                  </div>
-                  <p className="w-[120px] text-sm text-muted">{log.type}</p>
-                  <p className="w-[100px] text-sm text-muted">{log.plate}</p>
-                  <div className="w-[100px]">
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>
-                      {badge.label}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
+          {/* min-w preserva as larguras fixas das colunas (Nome flexível + 320px
+              de colunas fixas) em vez de espremê-las até colidir — abaixo disso
+              a lista rola na horizontal (overflow-x-auto), mesmo critério já
+              usado em Controle de Acessos/Frota e nos cadastros (Veículos etc.). */}
+          <div className="overflow-x-auto">
+            <div className="min-w-[480px]">
+              <div className="flex bg-canvas px-4 py-3 text-xs font-bold text-muted">
+                <p className="flex-1">Nome</p>
+                <p className="w-[120px]">Tipo</p>
+                <p className="w-[100px]">Placa</p>
+                <p className="w-[100px]">Status</p>
+              </div>
+              <div className="flex flex-col">
+                {recentLogs.length === 0 && (
+                  <p className="px-4 py-6 text-sm text-muted">Nenhum acesso registrado nos últimos 7 dias.</p>
+                )}
+                {recentLogs.map((log) => {
+                  const badge = STATUS_BADGES[log.status] ?? { label: log.status, className: 'bg-gray-100 text-gray-700' }
+                  return (
+                    <div key={log.id} className="flex items-center border-b border-gray-200 px-4 py-3.5 last:border-b-0">
+                      <div className="flex flex-1 flex-col gap-0.5">
+                        <p className="truncate text-sm font-semibold text-ink">{log.name}</p>
+                        {log.destination && <p className="text-xs text-muted">Destino: {log.destination}</p>}
+                      </div>
+                      <p className="w-[120px] text-sm text-muted">{log.type}</p>
+                      <p className="w-[100px] text-sm text-muted">{log.plate}</p>
+                      <div className="w-[100px]">
+                        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
