@@ -1,4 +1,4 @@
-import { Building2, Lock, User } from 'lucide-react'
+import { Building2, Lock, Pencil, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import SuggestionsDropdown from '../../components/SuggestionsDropdown'
 import { formatCityLabel, useCitySearch } from '../../hooks/useCitySearch'
@@ -10,8 +10,21 @@ import { RULES } from '../../lib/rules'
 import { useSettingsData } from './useSettingsData'
 
 const inputClass =
-  'h-10 w-full rounded-[10px] border border-gray-200 px-3.5 text-sm font-semibold text-ink focus:border-brand focus:outline-none'
+  'h-10 w-full rounded-[10px] border border-gray-200 px-3.5 text-sm font-semibold text-ink focus:border-brand focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-muted'
 const labelClass = 'text-[11px] font-semibold uppercase text-subtle'
+
+function EditButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Editar"
+      className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+    >
+      <Pencil className="size-4 text-gray-600" strokeWidth={1.75} />
+    </button>
+  )
+}
 
 function CardHeader({ icon, title, subtitle, badge }) {
   return (
@@ -62,6 +75,11 @@ export default function SettingsPage() {
   const [submitError, setSubmitError] = useState(null)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Campos ficam desabilitados até o usuário clicar no lápis — antes disso
+  // os dois formulários (Perfil e, pra admin, Dados da Empresa) já vinham
+  // abertos pra edição direto, sem nenhum gesto explícito pra entrar em modo
+  // de edição.
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
 
   // "Dados da Empresa" — só admin edita (ver isAdmin abaixo); o form fica
   // populado mesmo pra operador, só não é renderizado nesse caso (evita
@@ -83,35 +101,58 @@ export default function SettingsPage() {
   const [companyError, setCompanyError] = useState(null)
   const [companySuccess, setCompanySuccess] = useState(false)
   const [isSavingCompany, setIsSavingCompany] = useState(false)
+  const [isEditingCompany, setIsEditingCompany] = useState(false)
   const cityInputRef = useRef(null)
+
+  function applyProfileFields(p) {
+    setName(p.name ?? '')
+    setCpf(formatCpf(p.cpf))
+    setEmail(p.email ?? '')
+  }
+
+  function applyCompanyFields(c) {
+    setCorporateName(c.corporate_name ?? '')
+    setTradeName(c.trade_name ?? '')
+    setCompanyCnpj(formatCnpj(c.cnpj))
+    setZipCode(c.zip_code ?? '')
+    setStreet(c.street ?? '')
+    setAddressNumber(c.address_number ?? '')
+    setComplement(c.complement ?? '')
+    setNeighborhood(c.neighborhood ?? '')
+    setUfFallback(c.state ?? '')
+    setContactEmail(c.contact_email ?? '')
+    setContactPhone(formatPhone(c.contact_phone))
+    setSelectedCityId(c.city_id ?? null)
+    setCityQuery(
+      c.city_id && c.city_name ? formatCityLabel({ name: c.city_name, stateAbbr: c.city_state_abbr }) : '',
+    )
+  }
 
   useEffect(() => {
     if (!profile) return
-    setName(profile.name ?? '')
-    setCpf(formatCpf(profile.cpf))
-    setEmail(profile.email ?? '')
+    applyProfileFields(profile)
   }, [profile])
 
   useEffect(() => {
     if (!company) return
-    setCorporateName(company.corporate_name ?? '')
-    setTradeName(company.trade_name ?? '')
-    setCompanyCnpj(formatCnpj(company.cnpj))
-    setZipCode(company.zip_code ?? '')
-    setStreet(company.street ?? '')
-    setAddressNumber(company.address_number ?? '')
-    setComplement(company.complement ?? '')
-    setNeighborhood(company.neighborhood ?? '')
-    setUfFallback(company.state ?? '')
-    setContactEmail(company.contact_email ?? '')
-    setContactPhone(formatPhone(company.contact_phone))
-    setSelectedCityId(company.city_id ?? null)
-    setCityQuery(
-      company.city_id && company.city_name
-        ? formatCityLabel({ name: company.city_name, stateAbbr: company.city_state_abbr })
-        : '',
-    )
+    applyCompanyFields(company)
   }, [company])
+
+  function handleCancelProfileEdit() {
+    if (profile) applyProfileFields(profile)
+    setNewPassword('')
+    setConfirmPassword('')
+    setSubmitError(null)
+    setSubmitSuccess(false)
+    setIsEditingProfile(false)
+  }
+
+  function handleCancelCompanyEdit() {
+    if (company) applyCompanyFields(company)
+    setCompanyError(null)
+    setCompanySuccess(false)
+    setIsEditingCompany(false)
+  }
 
   const citySuggestions = useCitySearch(cityQuery)
 
@@ -160,6 +201,7 @@ export default function SettingsPage() {
       })
       await refetch()
       setCompanySuccess(true)
+      setIsEditingCompany(false)
     } catch (err) {
       setCompanyError(getErrorMessage(err, 'Não foi possível salvar os dados da empresa.'))
     } finally {
@@ -199,6 +241,7 @@ export default function SettingsPage() {
       setNewPassword('')
       setConfirmPassword('')
       setSubmitSuccess(true)
+      setIsEditingProfile(false)
     } catch (err) {
       setSubmitError(getErrorMessage(err, 'Não foi possível salvar as alterações.'))
     } finally {
@@ -209,7 +252,7 @@ export default function SettingsPage() {
   const isAdmin = !!(profile && profile.rules & RULES.ADMIN)
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-0.5">
         <h1 className="text-xl font-bold text-ink">Configurações</h1>
         <p className="text-[13px] text-muted">Gerencie seu perfil de acesso e veja os dados da empresa.</p>
@@ -219,37 +262,55 @@ export default function SettingsPage() {
         <p className="text-sm text-red-600">Não foi possível carregar suas informações. Tente novamente mais tarde.</p>
       )}
 
-      {/* Página nunca rola (main já rola por padrão no Layout) — se o conteúdo
-          não couber mesmo compacto, esta faixa rola internamente, não a página. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+      {/* Lado a lado a partir de `lg` — os dois cards empilhados verticalmente
+          somavam mais altura do que a tela geralmente tem (forçava scroll na
+          página); aqui sobra largura, então usá-la corta a altura total quase
+          pela metade. Abaixo de `lg` volta a empilhar (mesmo critério do
+          resto do app). */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
         {profile && (
           <form
             onSubmit={handleSubmit}
-            className="flex shrink-0 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+            className="flex flex-1 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
           >
             <CardHeader
               icon={<User className="size-4 text-ink" strokeWidth={1.75} />}
               title="Meu Perfil"
               subtitle="Dados usados para o seu login no sistema."
               badge={
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                    isAdmin ? 'bg-brand-50 text-brand' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {isAdmin ? 'Administrador' : 'Operador'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                      isAdmin ? 'bg-brand-50 text-brand' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {isAdmin ? 'Administrador' : 'Operador'}
+                  </span>
+                  {!isEditingProfile && <EditButton onClick={() => setIsEditingProfile(true)} />}
+                </div>
               }
             />
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <label className={labelClass}>Nome Completo</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} />
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  disabled={!isEditingProfile}
+                  className={inputClass}
+                />
               </div>
               <div className="flex flex-col gap-1">
                 <label className={labelClass}>CPF</label>
-                <input value={cpf} onChange={(e) => setCpf(formatCpf(e.target.value))} required className={inputClass} />
+                <input
+                  value={cpf}
+                  onChange={(e) => setCpf(formatCpf(e.target.value))}
+                  required
+                  disabled={!isEditingProfile}
+                  className={inputClass}
+                />
                 {cpfDigits.length === 11 && !cpfIsValid && <p className="text-xs text-red-600">CPF inválido</p>}
               </div>
               <div className="flex flex-col gap-1">
@@ -259,6 +320,7 @@ export default function SettingsPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={!isEditingProfile}
                   className={inputClass}
                 />
               </div>
@@ -279,6 +341,7 @@ export default function SettingsPage() {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={!isEditingProfile}
                     className={inputClass}
                     autoComplete="new-password"
                   />
@@ -289,6 +352,7 @@ export default function SettingsPage() {
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={!isEditingProfile}
                     className={inputClass}
                     autoComplete="new-password"
                   />
@@ -299,20 +363,29 @@ export default function SettingsPage() {
             {submitError && <p className="text-sm text-red-600">{submitError}</p>}
             {submitSuccess && <p className="text-sm text-green-600">Alterações salvas com sucesso.</p>}
 
-            <div className="flex items-center justify-end">
-              <button
-                type="submit"
-                disabled={isSubmitting || !cpfIsValid}
-                className="rounded-[10px] bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
-              </button>
-            </div>
+            {isEditingProfile && (
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelProfileEdit}
+                  className="rounded-[10px] border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !cpfIsValid}
+                  className="rounded-[10px] bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
+                </button>
+              </div>
+            )}
           </form>
         )}
 
         {company && !isAdmin && (
-          <div className="flex shrink-0 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-1 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <CardHeader
               icon={<Building2 className="size-4 text-ink" strokeWidth={1.75} />}
               title="Dados da Empresa"
@@ -337,12 +410,13 @@ export default function SettingsPage() {
         {company && isAdmin && (
           <form
             onSubmit={handleCompanySubmit}
-            className="flex shrink-0 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+            className="flex flex-1 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
           >
             <CardHeader
               icon={<Building2 className="size-4 text-ink" strokeWidth={1.75} />}
               title="Dados da Empresa"
               subtitle="Cadastro do tenant — como administrador, você pode editar."
+              badge={!isEditingCompany && <EditButton onClick={() => setIsEditingCompany(true)} />}
             />
 
             <div className="grid grid-cols-2 gap-3">
@@ -352,12 +426,18 @@ export default function SettingsPage() {
                   value={corporateName}
                   onChange={(e) => setCorporateName(e.target.value)}
                   required
+                  disabled={!isEditingCompany}
                   className={inputClass}
                 />
               </div>
               <div className="flex flex-col gap-1">
                 <label className={labelClass}>Nome Fantasia</label>
-                <input value={tradeName} onChange={(e) => setTradeName(e.target.value)} className={inputClass} />
+                <input
+                  value={tradeName}
+                  onChange={(e) => setTradeName(e.target.value)}
+                  disabled={!isEditingCompany}
+                  className={inputClass}
+                />
               </div>
               <div className="flex flex-col gap-1">
                 <label className={labelClass}>CNPJ</label>
@@ -365,6 +445,7 @@ export default function SettingsPage() {
                   value={companyCnpj}
                   onChange={(e) => setCompanyCnpj(formatCnpj(e.target.value))}
                   required
+                  disabled={!isEditingCompany}
                   className={inputClass}
                 />
                 {companyCnpjDigits.length === 14 && !companyCnpjIsValid && (
@@ -377,6 +458,7 @@ export default function SettingsPage() {
                   type="email"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
+                  disabled={!isEditingCompany}
                   className={inputClass}
                 />
               </div>
@@ -385,6 +467,7 @@ export default function SettingsPage() {
                 <input
                   value={contactPhone}
                   onChange={(e) => setContactPhone(formatPhone(e.target.value))}
+                  disabled={!isEditingCompany}
                   className={inputClass}
                 />
               </div>
@@ -393,6 +476,7 @@ export default function SettingsPage() {
                 <input
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  disabled={!isEditingCompany}
                   className={inputClass}
                 />
               </div>
@@ -405,25 +489,37 @@ export default function SettingsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
                   <label className={labelClass}>Rua</label>
-                  <input value={street} onChange={(e) => setStreet(e.target.value)} className={inputClass} />
+                  <input
+                    value={street}
+                    onChange={(e) => setStreet(e.target.value)}
+                    disabled={!isEditingCompany}
+                    className={inputClass}
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className={labelClass}>Número</label>
                   <input
                     value={addressNumber}
                     onChange={(e) => setAddressNumber(e.target.value)}
+                    disabled={!isEditingCompany}
                     className={inputClass}
                   />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className={labelClass}>Complemento</label>
-                  <input value={complement} onChange={(e) => setComplement(e.target.value)} className={inputClass} />
+                  <input
+                    value={complement}
+                    onChange={(e) => setComplement(e.target.value)}
+                    disabled={!isEditingCompany}
+                    className={inputClass}
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className={labelClass}>Bairro</label>
                   <input
                     value={neighborhood}
                     onChange={(e) => setNeighborhood(e.target.value)}
+                    disabled={!isEditingCompany}
                     className={inputClass}
                   />
                 </div>
@@ -439,6 +535,7 @@ export default function SettingsPage() {
                     onFocus={() => setCityFocused(true)}
                     onBlur={() => setCityFocused(false)}
                     placeholder="Buscar cidade..."
+                    disabled={!isEditingCompany}
                     className={inputClass}
                   />
                   {cityFocused && (
@@ -456,9 +553,9 @@ export default function SettingsPage() {
                   <input
                     value={ufFallback}
                     onChange={(e) => setUfFallback(e.target.value.toUpperCase().slice(0, 2))}
-                    disabled={!!selectedCityId}
+                    disabled={!isEditingCompany || !!selectedCityId}
                     placeholder={selectedCityId ? undefined : 'Ex.: SP'}
-                    className={`${inputClass} disabled:bg-gray-100 disabled:text-muted`}
+                    className={inputClass}
                   />
                   {selectedCityId && (
                     <p className="text-xs text-muted">Preenchido automaticamente pela cidade selecionada.</p>
@@ -470,15 +567,24 @@ export default function SettingsPage() {
             {companyError && <p className="text-sm text-red-600">{companyError}</p>}
             {companySuccess && <p className="text-sm text-green-600">Dados da empresa salvos com sucesso.</p>}
 
-            <div className="flex items-center justify-end">
-              <button
-                type="submit"
-                disabled={isSavingCompany || !companyCnpjIsValid}
-                className="rounded-[10px] bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {isSavingCompany ? 'Salvando...' : 'Salvar Dados da Empresa'}
-              </button>
-            </div>
+            {isEditingCompany && (
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelCompanyEdit}
+                  className="rounded-[10px] border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingCompany || !companyCnpjIsValid}
+                  className="rounded-[10px] bg-brand px-4 py-2 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {isSavingCompany ? 'Salvando...' : 'Salvar Dados da Empresa'}
+                </button>
+              </div>
+            )}
           </form>
         )}
       </div>
