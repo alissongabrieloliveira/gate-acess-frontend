@@ -166,16 +166,7 @@ export default function AccessLogEditPage() {
                   ))}
                 </div>
               </div>
-              <div className="flex flex-1 flex-col gap-2">
-                <p className={labelClass}>Foto do Visitante</p>
-                <div
-                  title="Upload de foto ainda não suportado pelo backend"
-                  className="flex h-10 cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 bg-gray-50"
-                >
-                  <Camera className="size-3.5 text-gray-500" strokeWidth={1.5} />
-                  <p className="text-[11px] text-gray-500">Clique para enviar</p>
-                </div>
-              </div>
+              <div className="flex-1" />
             </div>
           </div>
 
@@ -210,6 +201,25 @@ export default function AccessLogEditPage() {
                     </div>
                   </div>
                 </div>
+                {detail.vehicle && (
+                  <div className="flex flex-col gap-1">
+                    <p className={labelClass}>Foto do Veículo (na Visita)</p>
+                    {detail.log.photoUrl ? (
+                      <img
+                        src={detail.log.photoUrl}
+                        alt="Foto do veículo na visita"
+                        className="h-24 w-24 rounded-lg border border-gray-200 object-cover"
+                      />
+                    ) : (
+                      <div
+                        title={READONLY_TITLE}
+                        className="flex h-10 w-24 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50"
+                      >
+                        <Camera className="size-3.5 text-gray-400" strokeWidth={1.5} />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}

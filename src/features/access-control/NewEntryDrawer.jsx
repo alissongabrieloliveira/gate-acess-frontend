@@ -1,4 +1,4 @@
-import { Camera, ChevronDown, ChevronUp, Search } from 'lucide-react'
+import { Camera, ChevronDown, ChevronUp, ImageIcon, Search, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import SlideOver from '../../components/SlideOver'
 import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
@@ -11,6 +11,7 @@ import { PERSON_TYPE_LABELS, PERSON_TYPES } from './useAccessControlData'
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
 const labelClass = 'text-xs font-semibold text-gray-600'
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024 // mesmo limite do multer no backend (ver PersonFormDrawer)
 
 function StepBadge({ number, active }) {
   return (
@@ -66,6 +67,14 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const [destinationSectorId, setDestinationSectorId] = useState('')
   const [visitedPersonId, setVisitedPersonId] = useState('')
   const [vehicleSectionOpen, setVehicleSectionOpen] = useState(true)
+  // Foto da VISITA (tipicamente do veículo entrando), não da pessoa — vive em
+  // access_logs.photo_url, não em people.photo_url (ver access-logs.service.js
+  // #setPhoto). Por isso nasce sempre vazia (nunca precarrega nada de um
+  // cadastro existente) e só é enviada depois que o access_log é criado, já
+  // que o endpoint é POST /access-logs/:id/photo.
+  const [vehiclePhotoFile, setVehiclePhotoFile] = useState(null)
+  const [vehiclePhotoPreviewUrl, setVehiclePhotoPreviewUrl] = useState(null)
+  const [vehiclePhotoError, setVehiclePhotoError] = useState(null)
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [cpfFocused, setCpfFocused] = useState(false)
@@ -75,6 +84,16 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const cpfInputRef = useRef(null)
   const nameInputRef = useRef(null)
   const plateInputRef = useRef(null)
+  const vehicleCameraInputRef = useRef(null)
+  const vehicleFileInputRef = useRef(null)
+  const blobUrlRef = useRef(null)
+
+  useEffect(
+    () => () => {
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+    },
+    [],
+  )
 
   const personLookup = useLookup(cpf, 11, async (value) => {
     const { data } = await api.get('/people', { params: { cpf: value } })
@@ -142,12 +161,35 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     }
   }, [existingPerson])
 
+  function handleVehiclePhotoChange(event) {
+    const file = event.target.files?.[0]
+    event.target.value = '' // permite escolher o mesmo arquivo de novo depois
+    if (!file) return
+
+    setVehiclePhotoError(null)
+    if (!file.type.startsWith('image/')) {
+      setVehiclePhotoError('Selecione um arquivo de imagem.')
+      return
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setVehiclePhotoError('A imagem deve ter no máximo 5MB.')
+      return
+    }
+
+    if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current)
+    const url = URL.createObjectURL(file)
+    blobUrlRef.current = url
+    setVehiclePhotoFile(file)
+    setVehiclePhotoPreviewUrl(url)
+  }
+
   useEffect(() => {
     if (existingVehicle) {
       setBrandModel([existingVehicle.brand, existingVehicle.model].filter(Boolean).join(' '))
     }
   }, [existingVehicle])
 
+  const hasVehicle = plate.trim().length > 0
   const personBlocked = existingPerson?.isBlocked
   const vehicleBlocked = existingVehicle?.isBlocked
   const newEntryCpfDigits = cpf.replace(/\D/g, '')
@@ -155,12 +197,16 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   // existente no banco, não precisa revalidar aqui. Pessoa nova: precisa
   // passar no dígito verificador antes de tentar criar via POST /people.
   const newEntryCpfIsValid = !!existingPerson || isValidCpf(newEntryCpfDigits)
+  // Funcionário entrando não está visitando ninguém, está indo trabalhar —
+  // só Visitante/Prestador (personType 1/2) exigem anfitrião.
+  const hostRequired = personType !== 3
+  const hostOptions = useMemo(() => lookups.people.filter((p) => p.personType === 3), [lookups.people])
   const canSubmit =
     newEntryCpfDigits.length >= 11 &&
     newEntryCpfIsValid &&
     name.trim() &&
     destinationSectorId &&
-    visitedPersonId &&
+    (!hostRequired || visitedPersonId) &&
     !personBlocked &&
     !vehicleBlocked
 
@@ -171,7 +217,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
       setError(
         newEntryCpfDigits.length >= 11 && !newEntryCpfIsValid
           ? 'CPF inválido.'
-          : 'Preencha CPF, nome, setor de destino e anfitrião para continuar.'
+          : `Preencha CPF, nome, setor de destino${hostRequired ? ' e anfitrião' : ''} para continuar.`
       )
       return
     }
@@ -203,10 +249,16 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
         personId,
         vehicleId: vehicleId || undefined,
         destinationSectorId: Number(destinationSectorId),
-        visitedPersonId: Number(visitedPersonId),
+        visitedPersonId: visitedPersonId ? Number(visitedPersonId) : undefined,
         entryGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
         kmEntry: kmEntry ? Number(kmEntry) : undefined,
       })
+
+      if (vehiclePhotoFile) {
+        const formData = new FormData()
+        formData.append('photo', vehiclePhotoFile)
+        await api.post(`/access-logs/${log.id}/photo`, formData)
+      }
 
       // Não usa enrichLog(log, lookups) aqui: se a pessoa/veículo acabou de
       // ser criado nesta mesma submissão, ainda não está no mapa de lookups
@@ -369,17 +421,6 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
               ))}
             </div>
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Foto do Visitante</label>
-            <div
-              title="Upload de foto ainda não suportado pelo backend"
-              className="flex h-20 w-full cursor-not-allowed flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-gray-50"
-            >
-              <Camera className="size-6 text-gray-500" strokeWidth={1.5} />
-              <p className="text-xs text-gray-500">Clique para enviar</p>
-            </div>
-          </div>
         </div>
 
         <hr className="border-gray-200" />
@@ -464,6 +505,58 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
                   className={inputClass}
                 />
               </div>
+
+              {hasVehicle && (
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelClass}>Foto do Veículo</label>
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                      {vehiclePhotoPreviewUrl ? (
+                        <img src={vehiclePhotoPreviewUrl} alt="Foto do veículo" className="size-full object-cover" />
+                      ) : (
+                        <ImageIcon className="size-6 text-gray-400" strokeWidth={1.5} />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => vehicleCameraInputRef.current?.click()}
+                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        <Camera className="size-3.5" strokeWidth={1.75} />
+                        Tirar Foto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => vehicleFileInputRef.current?.click()}
+                        className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                      >
+                        <Upload className="size-3.5" strokeWidth={1.75} />
+                        Anexar Foto
+                      </button>
+                    </div>
+                  </div>
+                  {/* capture="environment" abre a câmera direto em celular/tablet; sem
+                      o atributo, o mesmo input vira um seletor de arquivo comum (galeria) —
+                      dois inputs ocultos pra oferecer as duas ações separadamente. */}
+                  <input
+                    ref={vehicleCameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleVehiclePhotoChange}
+                    className="hidden"
+                  />
+                  <input
+                    ref={vehicleFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleVehiclePhotoChange}
+                    className="hidden"
+                  />
+                  {vehiclePhotoError && <p className="text-xs text-red-600">{vehiclePhotoError}</p>}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -494,22 +587,24 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
             </select>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className={labelClass}>Pessoa Visitada (Anfitrião) *</label>
-            <select
-              required
-              value={visitedPersonId}
-              onChange={(event) => setVisitedPersonId(event.target.value)}
-              className={inputClass}
-            >
-              <option value="">Selecione...</option>
-              {lookups.people.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.name} — {PERSON_TYPE_LABELS[person.personType]}
-                </option>
-              ))}
-            </select>
-          </div>
+          {hostRequired && (
+            <div className="flex flex-col gap-1">
+              <label className={labelClass}>Pessoa Visitada (Anfitrião) *</label>
+              <select
+                required
+                value={visitedPersonId}
+                onChange={(event) => setVisitedPersonId(event.target.value)}
+                className={inputClass}
+              >
+                <option value="">Selecione...</option>
+                {hostOptions.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}

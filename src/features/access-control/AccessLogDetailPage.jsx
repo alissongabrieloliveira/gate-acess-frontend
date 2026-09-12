@@ -135,16 +135,7 @@ export default function AccessLogDetailPage() {
                   {PERSON_TYPE_LABELS[detail.person.personType] ?? '—'}
                 </span>
               </div>
-              <div className="flex flex-1 flex-col gap-1.5">
-                <p className="text-[11px] font-semibold uppercase text-subtle">Foto do Visitante</p>
-                <div
-                  title="Upload de foto ainda não suportado pelo backend"
-                  className="flex h-14 cursor-not-allowed flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-gray-50"
-                >
-                  <Camera className="size-[18px] text-gray-500" strokeWidth={1.5} />
-                  <p className="text-[11px] text-gray-500">Clique para enviar</p>
-                </div>
-              </div>
+              <div className="flex-1" />
             </div>
           </div>
 
@@ -169,6 +160,22 @@ export default function AccessLogDetailPage() {
                   <Field label="KM de Entrada" value={detail.log.isKmUnavailable ? 'Não disponível' : detail.log.kmEntry ?? '—'} />
                   <Field label="KM de Saída" value={detail.log.kmExit ?? (detail.log.exitTime ? '—' : '----')} />
                 </div>
+                {detail.vehicle && (
+                  <div className="flex flex-col gap-1.5">
+                    <p className="text-[11px] font-semibold uppercase text-subtle">Foto do Veículo (na Visita)</p>
+                    {detail.log.photoUrl ? (
+                      <img
+                        src={detail.log.photoUrl}
+                        alt="Foto do veículo na visita"
+                        className="h-28 w-28 rounded-lg border border-gray-200 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-14 w-28 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50">
+                        <Camera className="size-[18px] text-gray-400" strokeWidth={1.5} />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -247,6 +254,8 @@ export default function AccessLogDetailPage() {
           sectorName={detail.sector?.name}
           visitedPersonName={detail.visitedPerson?.name}
           entryTime={detail.log.entryTime}
+          kmEntry={detail.log.kmEntry}
+          isKmUnavailable={detail.log.isKmUnavailable}
           defaultGateId={selectedGateId !== 'all' ? selectedGateId : gatesList[0]?.id}
           onClose={() => setIsExitDrawerOpen(false)}
           onExited={() => {
