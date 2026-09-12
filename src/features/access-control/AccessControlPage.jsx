@@ -253,6 +253,8 @@ export default function AccessControlPage() {
           sectorName={exitingLog.sectorName}
           visitedPersonName={exitingLog.visitedPersonName}
           entryTime={exitingLog.entryTime}
+          kmEntry={exitingLog.kmEntry}
+          isKmUnavailable={exitingLog.isKmUnavailable}
           defaultGateId={selectedGateId !== 'all' ? selectedGateId : lookups?.gatesList[0]?.id}
           onClose={() => setExitingLog(null)}
           onExited={() => {

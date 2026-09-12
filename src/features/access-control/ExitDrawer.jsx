@@ -26,8 +26,27 @@ function Field({ label, value }) {
   )
 }
 
-export default function ExitDrawer({ logId, status, personName, personCpf, vehiclePlate, vehicleLabel, sectorName, visitedPersonName, entryTime, defaultGateId, onClose, onExited }) {
-  const [kmExit, setKmExit] = useState('')
+export default function ExitDrawer({
+  logId,
+  status,
+  personName,
+  personCpf,
+  vehiclePlate,
+  vehicleLabel,
+  sectorName,
+  visitedPersonName,
+  entryTime,
+  kmEntry,
+  isKmUnavailable,
+  defaultGateId,
+  onClose,
+  onExited,
+}) {
+  // Veículo de visitante só vai até o estacionamento, não transita dentro da
+  // empresa — na prática o KM de saída é sempre igual ao de entrada. Pré-
+  // preenche com esse valor (operador ainda pode ajustar) quando ele existir.
+  const kmPrefilled = !isKmUnavailable && kmEntry != null
+  const [kmExit, setKmExit] = useState(kmPrefilled ? String(kmEntry) : '')
   const [observation, setObservation] = useState('')
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -117,6 +136,9 @@ export default function ExitDrawer({ logId, status, personName, personCpf, vehic
             placeholder="Informe o KM"
             className="h-11 w-full rounded-[10px] border border-gray-200 px-3.5 text-sm text-ink placeholder:text-subtle focus:border-brand focus:outline-none"
           />
+          {kmPrefilled && (
+            <p className="text-xs text-muted">Preenchido com o KM de entrada — ajuste se o veículo rodou dentro da empresa.</p>
+          )}
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase text-subtle">Observações</label>
