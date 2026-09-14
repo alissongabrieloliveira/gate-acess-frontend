@@ -3,6 +3,7 @@ import {
   Car,
   ChevronDown,
   DoorClosed,
+  DoorOpen,
   Download,
   FileText,
   FolderOpen,
@@ -123,6 +124,12 @@ export default function Sidebar({ isOpen, onClose }) {
             <Truck className="size-[18px]" strokeWidth={2} />
             Controle de Frota
           </NavLink>
+          {isAdmin && (
+            <NavLink to="/gate-control" className={navItemClass}>
+              <DoorOpen className="size-[18px]" strokeWidth={2} />
+              Controle de Portões
+            </NavLink>
+          )}
 
           <button
             type="button"

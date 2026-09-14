@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TopBar from '../../components/TopBar'
 import { formatCpf, formatPlateInput } from '../../lib/format'
+import GateDirectionButtons from '../gate-control/GateDirectionButtons'
 import ExitDrawer from './ExitDrawer'
 import NewEntryDrawer from './NewEntryDrawer'
 import { enrichLog, PAGE_SIZE, useAccessControlData } from './useAccessControlData'
@@ -116,6 +117,8 @@ export default function AccessControlPage() {
         </div>
 
         <div className="flex-1" />
+
+        <GateDirectionButtons />
 
         <button
           type="button"

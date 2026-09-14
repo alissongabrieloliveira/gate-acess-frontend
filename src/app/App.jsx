@@ -13,6 +13,7 @@ import DashboardPage from '../features/dashboard/DashboardPage'
 import FleetLogDetailPage from '../features/fleet/FleetLogDetailPage'
 import FleetLogEditPage from '../features/fleet/FleetLogEditPage'
 import FleetPage from '../features/fleet/FleetPage'
+import GateControlPage from '../features/gate-control/GateControlPage'
 import PeoplePage from '../features/people/PeoplePage'
 import AccessLogsReportPage from '../features/reports/AccessLogsReportPage'
 import AuditLogsPage from '../features/reports/AuditLogsPage'
@@ -51,6 +52,7 @@ export default function App() {
                 <Route path="/fleet" element={<FleetPage />} />
                 <Route path="/fleet/:id" element={<FleetLogDetailPage />} />
                 <Route path="/fleet/:id/edit" element={<FleetLogEditPage />} />
+                <Route path="/gate-control" element={<GateControlPage />} />
                 <Route path="/vehicles" element={<VehiclesPage />} />
                 <Route path="/people" element={<PeoplePage />} />
                 <Route path="/users" element={<UsersPage />} />

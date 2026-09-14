@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TopBar from '../../components/TopBar'
 import { formatPlateInput } from '../../lib/format'
+import GateDirectionButtons from '../gate-control/GateDirectionButtons'
 import DepartureDrawer from './DepartureDrawer'
 import ReturnDrawer from './ReturnDrawer'
 import { enrichFleetLog, PAGE_SIZE, useFleetData } from './useFleetData'
@@ -114,6 +115,8 @@ export default function FleetPage() {
         </div>
 
         <div className="flex-1" />
+
+        <GateDirectionButtons />
 
         <button
           type="button"
