@@ -5,6 +5,7 @@ import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
+import { displayKmDeparture, displayKmReturn } from './kmRules'
 import { PERSON_TYPES } from './useFleetData'
 import { useFleetLogDetail } from './useFleetLogDetail'
 
@@ -286,13 +287,13 @@ export default function FleetLogEditPage() {
               <div className="flex flex-1 flex-col gap-1">
                 <p className={labelClass}>KM de Saída</p>
                 <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                  {detail.log.isKmUnavailable ? 'Não disponível' : (detail.log.kmDeparture ?? '—')}
+                  {displayKmDeparture(detail.log)}
                 </div>
               </div>
               <div className="flex flex-1 flex-col gap-1">
                 <p className={labelClass}>KM de Retorno</p>
                 <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                  {detail.log.kmReturn ?? '----'}
+                  {displayKmReturn(detail.log)}
                 </div>
               </div>
             </div>

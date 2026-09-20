@@ -250,6 +250,7 @@ export default function FleetPage() {
           purpose={returningLog.purpose}
           towPlate={returningLog.towPlate}
           departureTime={returningLog.departureTime}
+          kmDeparture={returningLog.kmDeparture}
           defaultGateId={selectedGateId !== 'all' ? selectedGateId : lookups?.gatesList[0]?.id}
           onClose={() => setReturningLog(null)}
           onReturned={() => {

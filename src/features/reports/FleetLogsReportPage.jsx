@@ -1,6 +1,7 @@
 import { ChevronDown, Eye, FileDown, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { displayKmDeparture, displayKmReturn } from '../fleet/kmRules'
 import { formatPlateInput } from '../../lib/format'
 import { openReportPrintWindow, writeReportPdf } from './exportReportPdf'
 import { enrichFleetLogReport, fetchAllFleetLogs, PAGE_SIZE, useFleetLogsReportData } from './useFleetLogsReportData'
@@ -40,18 +41,6 @@ function formatDateTime(value) {
   })
 }
 
-// Mesma lógica já usada em FleetLogDetailPage.jsx/FleetLogEditPage.jsx: KM
-// de saída leva em conta isKmUnavailable, KM de retorno ainda não existe
-// enquanto o veículo segue na rua.
-function formatKmDeparture(log) {
-  if (log.isKmUnavailable) return 'Não disponível'
-  return log.kmDeparture ?? '—'
-}
-
-function formatKmReturn(log) {
-  return log.kmReturn ?? (log.returnTime ? '—' : '----')
-}
-
 const EXPORT_COLUMNS = [
   { label: 'Placa', value: (r) => (r.vehiclePlate ? formatPlateInput(r.vehiclePlate) : '—') },
   { label: 'Identificação', value: (r) => r.vehicleIdentification ?? '—' },
@@ -59,9 +48,9 @@ const EXPORT_COLUMNS = [
   { label: 'Motorista', value: (r) => r.driverName ?? '—' },
   { label: 'Destino', value: (r) => r.destination ?? '—' },
   { label: 'Saída', value: (r) => formatDateTime(r.departureTime) },
-  { label: 'KM de Saída', value: (r) => formatKmDeparture(r) },
+  { label: 'KM de Saída', value: (r) => displayKmDeparture(r) },
   { label: 'Retorno', value: (r) => formatDateTime(r.returnTime) },
-  { label: 'KM de Retorno', value: (r) => formatKmReturn(r) },
+  { label: 'KM de Retorno', value: (r) => displayKmReturn(r) },
   { label: 'Status', value: (r) => (r.status === 'ON_TRIP' ? 'Na Rua' : r.status === 'RETURNED' ? 'Retornado' : r.status) },
 ]
 
@@ -216,9 +205,9 @@ export default function FleetLogsReportPage() {
                     <p className="w-[130px] truncate text-center text-sm text-gray-700">{log.driverName ?? '—'}</p>
                     <p className="w-[140px] truncate text-center text-sm text-gray-700">{log.destination ?? '—'}</p>
                     <p className="w-[110px] text-center text-sm text-gray-700">{formatDateTime(log.departureTime)}</p>
-                    <p className="w-[90px] text-center text-sm text-gray-700">{formatKmDeparture(log)}</p>
+                    <p className="w-[90px] text-center text-sm text-gray-700">{displayKmDeparture(log)}</p>
                     <p className="w-[110px] text-center text-sm text-subtle">{formatDateTime(log.returnTime)}</p>
-                    <p className="w-[90px] text-center text-sm text-subtle">{formatKmReturn(log)}</p>
+                    <p className="w-[90px] text-center text-sm text-subtle">{displayKmReturn(log)}</p>
                     <div className="flex w-[90px] items-center justify-center">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
                     </div>

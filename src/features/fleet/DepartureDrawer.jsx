@@ -6,6 +6,8 @@ import { useCitySearch, formatCityLabel } from '../../hooks/useCitySearch'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
+import { KmFeedbackMessage, KmUnavailableCheckbox } from './KmFeedback'
+import { checkDepartureKm, formatKm, parseKm } from './kmRules'
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
@@ -39,6 +41,15 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
   const [destination, setDestination] = useState('')
   const [purpose, setPurpose] = useState('')
   const [kmDeparture, setKmDeparture] = useState('')
+  const [kmUnavailable, setKmUnavailable] = useState(false)
+  // Último KM conhecido do veículo selecionado: pré-preenche o campo e serve
+  // de referência pro aviso "menor que o último registrado".
+  const [lastKm, setLastKm] = useState(null)
+  // Aviso (não bloqueia) mostrado só depois de tentar confirmar; qualquer
+  // mudança no KM zera o "conferi", já que a conferência era do valor anterior.
+  const [kmError, setKmError] = useState(null)
+  const [kmWarning, setKmWarning] = useState(null)
+  const [kmWarningAck, setKmWarningAck] = useState(false)
   const [fuelLevelDeparture, setFuelLevelDeparture] = useState('')
   const [observation, setObservation] = useState('')
   const [plateFocused, setPlateFocused] = useState(false)
@@ -48,6 +59,9 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
 
   const plateInputRef = useRef(null)
   const destinationInputRef = useRef(null)
+  // Id do veículo cujo último KM ainda interessa: descarta a resposta de uma
+  // consulta atrasada se o operador já trocou/limpou o veículo.
+  const lastKmRequestRef = useRef(null)
 
   const citySuggestions = useCitySearch(destination)
 
@@ -68,15 +82,45 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
     [fleetVehicles, selectedVehicle],
   )
 
+  function resetKmWarning() {
+    setKmError(null)
+    setKmWarning(null)
+    setKmWarningAck(false)
+  }
+
+  // O KM pré-preenchido é do veículo anterior se o operador trocar de placa:
+  // sempre zera antes de carregar o do novo.
+  function resetKm() {
+    setKmDeparture('')
+    setLastKm(null)
+    resetKmWarning()
+  }
+
+  async function loadLastKm(vehicleId) {
+    try {
+      const { data } = await api.get(`/fleet-logs/vehicles/${vehicleId}/last-km`)
+      if (lastKmRequestRef.current !== vehicleId) return
+      setLastKm(data.lastKm)
+      if (data.lastKm != null) setKmDeparture((current) => current || String(data.lastKm))
+    } catch {
+      // Só conveniência: sem o último KM o operador digita e o backend valida.
+    }
+  }
+
   function selectVehicle(vehicle) {
     setSelectedVehicle(vehicle)
     setPlate(formatPlateInput(vehicle.licensePlate))
     plateInputRef.current?.blur()
+    resetKm()
+    lastKmRequestRef.current = vehicle.id
+    loadLastKm(vehicle.id)
   }
 
   function clearVehicle() {
     setSelectedVehicle(null)
     setPlate('')
+    lastKmRequestRef.current = null
+    resetKm()
     plateInputRef.current?.focus()
   }
 
@@ -95,6 +139,15 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
       setError('Selecione um veículo da frota própria para continuar.')
       return
     }
+    const kmCheck = checkDepartureKm({ raw: kmDeparture, unavailable: kmUnavailable, lastKm })
+    if (kmCheck.error) {
+      setKmError(kmCheck.error)
+      return
+    }
+    if (kmCheck.warning && !kmWarningAck) {
+      setKmWarning(kmCheck.warning)
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -106,7 +159,8 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
         destination: destination.trim() || undefined,
         purpose: purpose.trim() || undefined,
         departureGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
-        kmDeparture: kmDeparture ? Number(kmDeparture) : undefined,
+        kmDeparture: kmUnavailable ? undefined : parseKm(kmDeparture),
+        isKmUnavailable: kmUnavailable || undefined,
         fuelLevelDeparture: fuelLevelDeparture ? Number(fuelLevelDeparture) : undefined,
         observation: observation.trim() || undefined,
       })
@@ -362,13 +416,28 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
 
           <div className="flex gap-2">
             <div className="flex flex-1 flex-col gap-1">
-              <label className={labelClass}>KM de Saída</label>
+              <label className={labelClass}>KM de Saída *</label>
               <input
                 type="number"
                 min="0"
+                inputMode="numeric"
                 value={kmDeparture}
-                onChange={(event) => setKmDeparture(event.target.value)}
+                disabled={kmUnavailable}
+                onChange={(event) => {
+                  setKmDeparture(event.target.value)
+                  resetKmWarning()
+                }}
                 className={inputClass}
+              />
+              {lastKm != null && (
+                <p className="text-xs text-muted">Último KM registrado: {formatKm(lastKm)}</p>
+              )}
+              <KmUnavailableCheckbox
+                checked={kmUnavailable}
+                onChange={(checked) => {
+                  setKmUnavailable(checked)
+                  resetKmWarning()
+                }}
               />
             </div>
             <div className="flex flex-1 flex-col gap-1">
@@ -383,6 +452,13 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
               />
             </div>
           </div>
+
+          <KmFeedbackMessage
+            error={kmError}
+            warning={kmWarning}
+            acknowledged={kmWarningAck}
+            onAcknowledge={setKmWarningAck}
+          />
 
           <div className="flex flex-col gap-1">
             <label className={labelClass}>Observações</label>

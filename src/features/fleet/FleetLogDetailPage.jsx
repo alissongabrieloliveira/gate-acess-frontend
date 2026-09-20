@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { formatPlateInput } from '../../lib/format'
+import { displayKmDeparture, displayKmReturn } from './kmRules'
 import ReturnDrawer from './ReturnDrawer'
 import { PERSON_TYPE_LABELS } from './useFleetData'
 import { useFleetLogDetail } from './useFleetLogDetail'
@@ -196,8 +197,8 @@ export default function FleetLogDetailPage() {
               />
             </div>
             <div className="flex gap-4">
-              <Field label="KM de Saída" value={detail.log.isKmUnavailable ? 'Não disponível' : detail.log.kmDeparture ?? '—'} />
-              <Field label="KM de Retorno" value={detail.log.kmReturn ?? (detail.log.returnTime ? '—' : '----')} />
+              <Field label="KM de Saída" value={displayKmDeparture(detail.log)} />
+              <Field label="KM de Retorno" value={displayKmReturn(detail.log)} />
             </div>
             <div className="flex gap-4">
               <Field label="Combustível na Saída" value={detail.log.fuelLevelDeparture != null ? `${detail.log.fuelLevelDeparture}%` : '—'} />
@@ -248,6 +249,7 @@ export default function FleetLogDetailPage() {
           purpose={detail.log.purpose}
           towPlate={detail.transportingVehicle?.licensePlate ?? detail.log.transportedByPlate}
           departureTime={detail.log.departureTime}
+          kmDeparture={detail.log.kmDeparture}
           defaultGateId={selectedGateId !== 'all' ? selectedGateId : gatesList[0]?.id}
           onClose={() => setIsReturnDrawerOpen(false)}
           onReturned={() => {
