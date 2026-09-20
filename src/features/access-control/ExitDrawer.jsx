@@ -1,8 +1,11 @@
 import { AlertTriangle } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
 import SlideOver from '../../components/SlideOver'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
+import { parseKm } from '../../lib/km'
+import { checkExitKm } from './kmRules'
 
 const STATUS_BADGES = {
   ACTIVE: { label: 'Ativo', className: 'bg-green-100 text-green-700' },
@@ -38,6 +41,8 @@ export default function ExitDrawer({
   entryTime,
   kmEntry,
   isKmUnavailable,
+  hasVehicle,
+  kmRequired,
   defaultGateId,
   onClose,
   onExited,
@@ -47,9 +52,28 @@ export default function ExitDrawer({
   // preenche com esse valor (operador ainda pode ajustar) quando ele existir.
   const kmPrefilled = !isKmUnavailable && kmEntry != null
   const [kmExit, setKmExit] = useState(kmPrefilled ? String(kmEntry) : '')
+  const [kmUnavailable, setKmUnavailable] = useState(false)
+  // Aviso (não bloqueia) mostrado só depois de tentar confirmar; qualquer
+  // mudança no KM zera o "conferi", já que a conferência era do valor anterior.
+  const [kmError, setKmError] = useState(null)
+  const [kmWarning, setKmWarning] = useState(null)
+  const [kmWarningAck, setKmWarningAck] = useState(false)
   const [observation, setObservation] = useState('')
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const errorRef = useRef(null)
+
+  // O erro genérico (ex.: o backend recusou o KM) fica no fim do drawer, que
+  // rola — sem isto o operador clica em Confirmar e "nada acontece".
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [error])
+
+  function resetKmFeedback() {
+    setKmError(null)
+    setKmWarning(null)
+    setKmWarningAck(false)
+  }
 
   async function handleConfirm() {
     setError(null)
@@ -57,11 +81,23 @@ export default function ExitDrawer({
       setError('Nenhum portão disponível para registrar a saída.')
       return
     }
+    if (hasVehicle) {
+      const kmCheck = checkExitKm({ raw: kmExit, unavailable: kmUnavailable, required: kmRequired, kmEntry })
+      if (kmCheck.error) {
+        setKmError(kmCheck.error)
+        return
+      }
+      if (kmCheck.warning && !kmWarningAck) {
+        setKmWarning(kmCheck.warning)
+        return
+      }
+    }
     setIsSubmitting(true)
     try {
       await api.patch(`/access-logs/${logId}/exit`, {
         exitGateId: Number(defaultGateId),
-        kmExit: kmExit ? Number(kmExit) : undefined,
+        kmExit: hasVehicle && !kmUnavailable ? (parseKm(kmExit) ?? undefined) : undefined,
+        isKmUnavailable: (hasVehicle && kmUnavailable) || undefined,
         observation: observation.trim() || undefined,
       })
       onExited()
@@ -126,20 +162,42 @@ export default function ExitDrawer({
 
       <div className="flex flex-col gap-3">
         <p className="text-[13px] font-semibold text-ink">Dados da Saída</p>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-semibold uppercase text-subtle">KM de Saída</label>
-          <input
-            type="number"
-            min="0"
-            value={kmExit}
-            onChange={(event) => setKmExit(event.target.value)}
-            placeholder="Informe o KM"
-            className="h-11 w-full rounded-[10px] border border-gray-200 px-3.5 text-sm text-ink placeholder:text-subtle focus:border-brand focus:outline-none"
-          />
-          {kmPrefilled && (
-            <p className="text-xs text-muted">Preenchido com o KM de entrada — ajuste se o veículo rodou dentro da empresa.</p>
-          )}
-        </div>
+        {hasVehicle && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase text-subtle">
+              KM de Saída{kmRequired ? ' *' : ''}
+            </label>
+            <input
+              type="number"
+              min="0"
+              inputMode="numeric"
+              value={kmExit}
+              disabled={kmUnavailable}
+              onChange={(event) => {
+                setKmExit(event.target.value)
+                resetKmFeedback()
+              }}
+              placeholder="Informe o KM"
+              className="h-11 w-full rounded-[10px] border border-gray-200 px-3.5 text-sm text-ink placeholder:text-subtle focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted"
+            />
+            {kmPrefilled && (
+              <p className="text-xs text-muted">Preenchido com o KM de entrada — ajuste se o veículo rodou dentro da empresa.</p>
+            )}
+            <KmUnavailableCheckbox
+              checked={kmUnavailable}
+              onChange={(checked) => {
+                setKmUnavailable(checked)
+                resetKmFeedback()
+              }}
+            />
+            <KmFeedbackMessage
+              error={kmError}
+              warning={kmWarning}
+              acknowledged={kmWarningAck}
+              onAcknowledge={setKmWarningAck}
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-1.5">
           <label className="text-[11px] font-semibold uppercase text-subtle">Observações</label>
           <textarea
@@ -159,7 +217,11 @@ export default function ExitDrawer({
         </p>
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && (
+        <p ref={errorRef} className="mt-3 text-sm text-red-600">
+          {error}
+        </p>
+      )}
     </SlideOver>
   )
 }

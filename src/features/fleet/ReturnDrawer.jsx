@@ -4,7 +4,7 @@ import SlideOver from '../../components/SlideOver'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
-import { KmFeedbackMessage, KmUnavailableCheckbox } from './KmFeedback'
+import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
 import { checkReturnKm, formatKm, parseKm } from './kmRules'
 
 function formatDate(value) {

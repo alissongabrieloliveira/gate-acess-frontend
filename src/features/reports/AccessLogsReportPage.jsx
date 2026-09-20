@@ -2,6 +2,7 @@ import { ChevronDown, Eye, FileDown, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCpf, formatPlateInput } from '../../lib/format'
+import { displayKmEntry, displayKmExit } from '../access-control/kmRules'
 import { openReportPrintWindow, writeReportPdf } from './exportReportPdf'
 import { enrichAccessLog, fetchAllAccessLogs, PAGE_SIZE, useAccessLogsReportData } from './useAccessLogsReportData'
 
@@ -40,28 +41,15 @@ function formatDateTime(value) {
   })
 }
 
-// KM de entrada leva em conta isKmUnavailable (a portaria pode marcar
-// "sem KM disponível" no momento do registro); KM de saída ainda não
-// existe enquanto o acesso segue ativo — mesma lógica já usada em
-// AccessLogDetailPage.jsx/AccessLogEditPage.jsx.
-function formatKmEntry(log) {
-  if (log.isKmUnavailable) return 'Não disponível'
-  return log.kmEntry ?? '—'
-}
-
-function formatKmExit(log) {
-  return log.kmExit ?? (log.exitTime ? '—' : '----')
-}
-
 const EXPORT_COLUMNS = [
   { label: 'Nome', value: (r) => r.personName },
   { label: 'CPF', value: (r) => (r.personCpf ? formatCpf(r.personCpf) : '—') },
   { label: 'Placa', value: (r) => (r.vehiclePlate ? formatPlateInput(r.vehiclePlate) : '—') },
   { label: 'Portão de Entrada', value: (r) => r.entryGateName },
   { label: 'Entrada', value: (r) => formatDateTime(r.entryTime) },
-  { label: 'KM de Entrada', value: (r) => formatKmEntry(r) },
+  { label: 'KM de Entrada', value: (r) => displayKmEntry(r) },
   { label: 'Saída', value: (r) => formatDateTime(r.exitTime) },
-  { label: 'KM de Saída', value: (r) => formatKmExit(r) },
+  { label: 'KM de Saída', value: (r) => displayKmExit(r) },
   { label: 'Status', value: (r) => (r.status === 'ACTIVE' ? 'Ativo' : r.status === 'FINISHED' ? 'Finalizado' : r.status) },
 ]
 
@@ -217,9 +205,9 @@ export default function AccessLogsReportPage() {
                     </p>
                     <p className="w-[130px] truncate text-center text-sm text-gray-700">{log.entryGateName}</p>
                     <p className="w-[110px] text-center text-sm text-gray-700">{formatDateTime(log.entryTime)}</p>
-                    <p className="w-[90px] text-center text-sm text-gray-700">{formatKmEntry(log)}</p>
+                    <p className="w-[90px] text-center text-sm text-gray-700">{displayKmEntry(log)}</p>
                     <p className="w-[110px] text-center text-sm text-subtle">{formatDateTime(log.exitTime)}</p>
-                    <p className="w-[90px] text-center text-sm text-subtle">{formatKmExit(log)}</p>
+                    <p className="w-[90px] text-center text-sm text-subtle">{displayKmExit(log)}</p>
                     <div className="flex w-[90px] items-center justify-center">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
                     </div>

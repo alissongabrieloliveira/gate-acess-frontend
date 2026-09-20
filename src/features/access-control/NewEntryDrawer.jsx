@@ -1,10 +1,13 @@
 import { Camera, ChevronDown, ChevronUp, ImageIcon, Search, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
 import SlideOver from '../../components/SlideOver'
 import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
+import { formatKm, parseKm } from '../../lib/km'
+import { checkEntryKm, isKmRequired, VEHICLE_TYPE_FLEET } from './kmRules'
 import { openPrintWindow, printReceipt } from './printReceipt'
 import { PERSON_TYPE_LABELS, PERSON_TYPES } from './useAccessControlData'
 
@@ -63,7 +66,16 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const [personType, setPersonType] = useState(1)
   const [plate, setPlate] = useState('')
   const [brandModel, setBrandModel] = useState('')
-  const [kmEntry, setKmEntry] = useState('')
+  // null = o operador ainda não mexeu no campo: aí vale o último KM conhecido
+  // do veículo (derivado abaixo, sem efeito), que some sozinho se a placa mudar.
+  const [kmEntryInput, setKmEntryInput] = useState(null)
+  const [kmUnavailable, setKmUnavailable] = useState(false)
+  const [lastKmInfo, setLastKmInfo] = useState(null)
+  // Aviso (não bloqueia) mostrado só depois de tentar confirmar; qualquer
+  // mudança no KM zera o "conferi", já que a conferência era do valor anterior.
+  const [kmError, setKmError] = useState(null)
+  const [kmWarning, setKmWarning] = useState(null)
+  const [kmWarningAck, setKmWarningAck] = useState(false)
   const [destinationSectorId, setDestinationSectorId] = useState('')
   const [visitedPersonId, setVisitedPersonId] = useState('')
   const [vehicleSectionOpen, setVehicleSectionOpen] = useState(true)
@@ -107,6 +119,33 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const existingPerson = personLookup.status === 'found' ? personLookup.record : null
   const existingVehicle = vehicleLookup.status === 'found' ? vehicleLookup.record : null
 
+  // Último KM conhecido do veículo cadastrado (acessos + frota): pré-preenche a
+  // entrada e serve de referência pro aviso "menor que o último registrado".
+  const existingVehicleId = existingVehicle?.id
+  useEffect(() => {
+    if (!existingVehicleId) return undefined
+    let cancelled = false
+    api
+      .get(`/access-logs/vehicles/${existingVehicleId}/last-km`)
+      .then(({ data }) => {
+        if (!cancelled) setLastKmInfo({ vehicleId: existingVehicleId, km: data.lastKm })
+      })
+      .catch(() => {
+        // Só conveniência: sem o último KM o operador digita e o backend valida.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [existingVehicleId])
+  const lastKm = lastKmInfo && lastKmInfo.vehicleId === existingVehicleId ? lastKmInfo.km : null
+  const kmEntry = kmEntryInput ?? (lastKm != null ? String(lastKm) : '')
+
+  function resetKmFeedback() {
+    setKmError(null)
+    setKmWarning(null)
+    setKmWarningAck(false)
+  }
+
   // Só sugere pessoa com CPF cadastrado — selecionar uma preenche o campo
   // CPF com o valor completo, que aciona o `personLookup` normal (o mesmo
   // fluxo de sempre) pra confirmar/travar o registro. Pessoa sem CPF nunca
@@ -135,8 +174,9 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const plateDigits = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
   const vehicleSuggestions = useMemo(() => {
     if (existingVehicle || plateDigits.length < 2) return []
+    // Frota Própria tem tela exclusiva (Controle de Frota): nunca sugerida aqui.
     return lookups.vehicles
-      .filter((v) => v.licensePlate?.toUpperCase().includes(plateDigits))
+      .filter((v) => v.vehicleType !== VEHICLE_TYPE_FLEET && v.licensePlate?.toUpperCase().includes(plateDigits))
       .slice(0, MAX_SUGGESTIONS)
   }, [lookups.vehicles, plateDigits, existingVehicle])
 
@@ -190,8 +230,13 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   }, [existingVehicle])
 
   const hasVehicle = plate.trim().length > 0
+  // KM de entrada só é obrigatório p/ Funcionário (com veículo).
+  const kmRequired = isKmRequired({ personType, hasVehicle })
   const personBlocked = existingPerson?.isBlocked
   const vehicleBlocked = existingVehicle?.isBlocked
+  // Digitar a placa inteira de um veículo da frota também não vale: a busca
+  // acha o cadastro, mas a entrada dele é pelo Controle de Frota.
+  const vehicleIsFleet = existingVehicle?.vehicleType === VEHICLE_TYPE_FLEET
   const newEntryCpfDigits = cpf.replace(/\D/g, '')
   // Pessoa já cadastrada (existingPerson): o CPF vem travado com um valor já
   // existente no banco, não precisa revalidar aqui. Pessoa nova: precisa
@@ -208,7 +253,8 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     destinationSectorId &&
     (!hostRequired || visitedPersonId) &&
     !personBlocked &&
-    !vehicleBlocked
+    !vehicleBlocked &&
+    !vehicleIsFleet
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -220,6 +266,20 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
           : `Preencha CPF, nome, setor de destino${hostRequired ? ' e anfitrião' : ''} para continuar.`
       )
       return
+    }
+
+    // Antes de abrir a janela de impressão: se o KM barrar, não deixa uma
+    // janela em branco órfã.
+    if (hasVehicle) {
+      const kmCheck = checkEntryKm({ raw: kmEntry, unavailable: kmUnavailable, required: kmRequired, lastKm })
+      if (kmCheck.error) {
+        setKmError(kmCheck.error)
+        return
+      }
+      if (kmCheck.warning && !kmWarningAck) {
+        setKmWarning(kmCheck.warning)
+        return
+      }
     }
 
     // Precisa abrir a janela AGORA, ainda síncrono dentro do handler do clique
@@ -251,7 +311,8 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
         destinationSectorId: Number(destinationSectorId),
         visitedPersonId: visitedPersonId ? Number(visitedPersonId) : undefined,
         entryGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
-        kmEntry: kmEntry ? Number(kmEntry) : undefined,
+        kmEntry: hasVehicle && !kmUnavailable ? (parseKm(kmEntry) ?? undefined) : undefined,
+        isKmUnavailable: (hasVehicle && kmUnavailable) || undefined,
       })
 
       if (vehiclePhotoFile) {
@@ -474,8 +535,13 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
                       )}
                     />
                   )}
-                  {vehicleLookup.status === 'found' && !vehicleBlocked && (
+                  {vehicleLookup.status === 'found' && !vehicleBlocked && !vehicleIsFleet && (
                     <p className="text-xs text-green-700">Veículo já cadastrado.</p>
+                  )}
+                  {vehicleIsFleet && (
+                    <p className="text-xs font-semibold text-red-600">
+                      Veículo da frota própria — registre a saída e o retorno pelo Controle de Frota.
+                    </p>
                   )}
                   {vehicleBlocked && (
                     <p className="text-xs font-semibold text-red-600">
@@ -495,18 +561,39 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className={labelClass}>KM de Entrada</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={kmEntry}
-                  onChange={(event) => setKmEntry(event.target.value)}
-                  className={inputClass}
-                />
-              </div>
+              {hasVehicle && !vehicleIsFleet && (
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>KM de Entrada{kmRequired ? ' *' : ''}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    inputMode="numeric"
+                    value={kmEntry}
+                    disabled={kmUnavailable}
+                    onChange={(event) => {
+                      setKmEntryInput(event.target.value)
+                      resetKmFeedback()
+                    }}
+                    className={inputClass}
+                  />
+                  {lastKm != null && <p className="text-xs text-muted">Último KM registrado: {formatKm(lastKm)}</p>}
+                  <KmUnavailableCheckbox
+                    checked={kmUnavailable}
+                    onChange={(checked) => {
+                      setKmUnavailable(checked)
+                      resetKmFeedback()
+                    }}
+                  />
+                  <KmFeedbackMessage
+                    error={kmError}
+                    warning={kmWarning}
+                    acknowledged={kmWarningAck}
+                    onAcknowledge={setKmWarningAck}
+                  />
+                </div>
+              )}
 
-              {hasVehicle && (
+              {hasVehicle && !vehicleIsFleet && (
                 <div className="flex flex-col gap-1.5">
                   <label className={labelClass}>Foto do Veículo</label>
                   <div className="flex items-center gap-3">

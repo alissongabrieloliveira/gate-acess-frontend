@@ -6,7 +6,7 @@ import { useCitySearch, formatCityLabel } from '../../hooks/useCitySearch'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
-import { KmFeedbackMessage, KmUnavailableCheckbox } from './KmFeedback'
+import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
 import { checkDepartureKm, formatKm, parseKm } from './kmRules'
 
 const inputClass =

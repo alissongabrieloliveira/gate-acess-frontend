@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { isKmRequired } from './kmRules'
 
 export const PAGE_SIZE = 8
 
@@ -113,6 +114,7 @@ export function enrichLog(log, lookups) {
     personName: person?.name ?? 'Pessoa não encontrada',
     personCpf: person?.cpf ?? null,
     personType: person ? (PERSON_TYPE_LABELS[person.personType] ?? '—') : '—',
+    kmRequired: isKmRequired({ personType: person?.personType, hasVehicle: !!log.vehicleId }),
     visitedPersonName: visitedPerson?.name ?? null,
     vehiclePlate: vehicle?.licensePlate ?? null,
     vehicleLabel: vehicle ? [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || null : null,

@@ -5,6 +5,7 @@ import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import ExitDrawer from './ExitDrawer'
 import { openPrintWindow, printReceipt } from './printReceipt'
+import { displayKmEntry, displayKmExit, isKmRequired } from './kmRules'
 import { PERSON_TYPE_LABELS } from './useAccessControlData'
 import { useAccessLogDetail } from './useAccessLogDetail'
 
@@ -157,8 +158,8 @@ export default function AccessLogDetailPage() {
                   </div>
                 )}
                 <div className="flex gap-4">
-                  <Field label="KM de Entrada" value={detail.log.isKmUnavailable ? 'Não disponível' : detail.log.kmEntry ?? '—'} />
-                  <Field label="KM de Saída" value={detail.log.kmExit ?? (detail.log.exitTime ? '—' : '----')} />
+                  <Field label="KM de Entrada" value={displayKmEntry(detail.log)} />
+                  <Field label="KM de Saída" value={displayKmExit(detail.log)} />
                 </div>
                 {detail.vehicle && (
                   <div className="flex flex-col gap-1.5">
@@ -256,6 +257,8 @@ export default function AccessLogDetailPage() {
           entryTime={detail.log.entryTime}
           kmEntry={detail.log.kmEntry}
           isKmUnavailable={detail.log.isKmUnavailable}
+          hasVehicle={!!detail.vehicle}
+          kmRequired={isKmRequired({ personType: detail.person.personType, hasVehicle: !!detail.vehicle })}
           defaultGateId={selectedGateId !== 'all' ? selectedGateId : gatesList[0]?.id}
           onClose={() => setIsExitDrawerOpen(false)}
           onExited={() => {

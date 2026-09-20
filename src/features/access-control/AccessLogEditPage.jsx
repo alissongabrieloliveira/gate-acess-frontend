@@ -5,6 +5,7 @@ import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, isValidCpf } from '../../lib/format'
+import { displayKmEntry, displayKmExit } from './kmRules'
 import { PERSON_TYPES } from './useAccessControlData'
 import { useAccessLogDetail } from './useAccessLogDetail'
 
@@ -191,13 +192,13 @@ export default function AccessLogEditPage() {
                   <div className="flex flex-1 flex-col gap-1">
                     <p className={labelClass}>KM de Entrada</p>
                     <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                      {detail.log.isKmUnavailable ? 'Não disponível' : (detail.log.kmEntry ?? '—')}
+                      {displayKmEntry(detail.log)}
                     </div>
                   </div>
                   <div className="flex flex-1 flex-col gap-1">
                     <p className={labelClass}>KM de Saída</p>
                     <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                      {detail.log.kmExit ?? '----'}
+                      {displayKmExit(detail.log)}
                     </div>
                   </div>
                 </div>

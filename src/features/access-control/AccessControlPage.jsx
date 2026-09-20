@@ -258,6 +258,8 @@ export default function AccessControlPage() {
           entryTime={exitingLog.entryTime}
           kmEntry={exitingLog.kmEntry}
           isKmUnavailable={exitingLog.isKmUnavailable}
+          hasVehicle={!!exitingLog.vehicleId}
+          kmRequired={exitingLog.kmRequired}
           defaultGateId={selectedGateId !== 'all' ? selectedGateId : lookups?.gatesList[0]?.id}
           onClose={() => setExitingLog(null)}
           onExited={() => {

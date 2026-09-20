@@ -1,3 +1,7 @@
+import { formatKm, parseKm } from '../../lib/km'
+
+export { formatKm, parseKm }
+
 // Regras de KM do Controle de Frota. O backend é a fonte da verdade
 // (fleet-logs.service.js: obrigatório, inteiro, retorno > saída); aqui só
 // antecipamos isso com mensagens claras e adicionamos os AVISOS de
@@ -5,16 +9,6 @@
 
 // Acima disso numa única viagem, quase sempre é algarismo a mais.
 export const MAX_TRIP_KM = 1000
-
-export function formatKm(value) {
-  return Number(value).toLocaleString('pt-BR')
-}
-
-// Inteiro não-negativo a partir do texto do input; null se vazio/inválido.
-export function parseKm(raw) {
-  const text = String(raw ?? '').trim()
-  return /^\d+$/.test(text) ? Number(text) : null
-}
 
 /**
  * Saída: obrigatória (salvo "KM indisponível"). Aviso (não bloqueia) se for
