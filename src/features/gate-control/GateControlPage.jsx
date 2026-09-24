@@ -18,6 +18,12 @@ const STATE_LABEL = { ON: 'Aberto', OFF: 'Fechado', MIXED: 'Divergente' }
  * GateDirectionButtons.jsx, abertos a qualquer operador). Por isso aqui
  * mantém os 2 botões Abrir/Fechar separados (útil pra teste técnico), em
  * vez do toggle único usado no fluxo operacional.
+ *
+ * As cancelas são de impulso (cada pulso alterna abre/fecha) e o status é
+ * só o PRESUMIDO pela última ação. Aqui os botões mandam `force`: pulsam
+ * mesmo se o status já for o pedido — é o jeito de ressincronizar quando o
+ * status divergir da cancela real: o pulso executa a ação clicada na cancela
+ * real e o status passa a ser o dela (no fluxo operacional isso vira no-op).
  */
 export default function GateControlPage() {
   const { user } = useAuth()
@@ -40,7 +46,7 @@ export default function GateControlPage() {
     setActionError(null)
     setPending({ direction: row.direction, action })
     try {
-      await api.post(`/gate-directions/${row.direction.toLowerCase()}/${action}`)
+      await api.post(`/gate-directions/${row.direction.toLowerCase()}/${action}`, { force: true })
       refetch()
     } catch (err) {
       setActionError(getErrorMessage(err, 'Não foi possível acionar a cancela.'))
@@ -66,6 +72,8 @@ export default function GateControlPage() {
         <h1 className="text-2xl font-bold text-ink">Controle de Portões</h1>
         <p className="text-sm text-muted">
           Diagnóstico e teste das cancelas de entrada/saída — confirme se o gateway e o controlador estão respondendo.
+          Aqui cada clique sempre manda o pulso, que inverte a cancela. Se o status não bater com a cancela real, clique
+          na ação que você quer que ela faça (ex.: está aberta mas aparece Fechado → Fechar) e o status volta a bater.
         </p>
       </div>
 

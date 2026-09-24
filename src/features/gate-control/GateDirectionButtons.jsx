@@ -28,11 +28,14 @@ export default function GateDirectionButtons() {
     const action = row.currentState === 'ON' ? 'close' : 'open'
     try {
       await api.post(`/gate-directions/${row.direction.toLowerCase()}/${action}`)
-      refetch()
     } catch (err) {
       setError(getErrorMessage(err, 'Não foi possível acionar a cancela.'))
     } finally {
       setPending(null)
+      // Sempre recarrega: se outro tablet já tinha acionado a cancela, o
+      // backend não manda pulso (senão inverteria de volta) e esta tela
+      // precisa só se atualizar para o estado real.
+      refetch()
     }
   }
 
