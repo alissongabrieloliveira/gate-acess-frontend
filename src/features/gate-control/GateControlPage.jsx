@@ -6,6 +6,7 @@ import { getErrorMessage } from '../../lib/errors'
 import { RULES } from '../../lib/rules'
 import GatewayDeviceCard from './GatewayDeviceCard'
 import GatewayOutputsTable from './GatewayOutputsTable'
+import OutputTestPanel from './OutputTestPanel'
 import { useGateDirectionsData } from './useGateDirectionsData'
 import { useGatewayConfigData } from './useGatewayConfigData'
 
@@ -145,6 +146,8 @@ export default function GateControlPage() {
           </div>
         </div>
       </div>
+
+      <OutputTestPanel outputs={outputs} />
 
       <div className="flex flex-col gap-4 border-t border-gray-200 pt-6">
         <div className="flex flex-col gap-1">
