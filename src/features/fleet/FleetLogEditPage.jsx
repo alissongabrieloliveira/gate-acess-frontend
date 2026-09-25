@@ -1,19 +1,31 @@
 import { ArrowLeft, Car, Clock, MapPin, Truck, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
+import { fromDateTimeLocal, toDateTimeLocal } from '../../lib/dateTimeInput'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
-import { displayKmDeparture, displayKmReturn } from './kmRules'
+import { parseKm } from '../../lib/km'
+import { RULES } from '../../lib/rules'
+import { checkDepartureKm, checkReturnKm, displayKmDeparture, displayKmReturn } from './kmRules'
 import { PERSON_TYPES } from './useFleetData'
 import { useFleetLogDetail } from './useFleetLogDetail'
 
 const inputClass = 'h-10 w-full rounded-[10px] border border-gray-200 px-3.5 text-sm font-semibold text-ink focus:border-brand focus:outline-none'
 const readOnlyClass = 'h-10 w-full cursor-not-allowed rounded-[10px] border border-gray-200 bg-gray-50 px-3.5 text-sm font-semibold text-muted'
 const labelClass = 'text-[11px] font-semibold uppercase text-subtle'
-const READONLY_TITLE =
-  'Não é possível editar este dado — não existe endpoint de atualização para o registro de frota em si, só para os cadastros de veículo e pessoa'
+const READONLY_TITLE = 'Somente administradores podem corrigir os dados do registro de frota'
+const TOW_PLATE_TITLE = 'Placa de guincho de terceiro não é editável — não é um veículo cadastrado'
+const NOT_RETURNED_TITLE = 'Este veículo ainda não retornou — registre o retorno pelo fluxo normal'
+// Folga pra diferença de relógio entre o tablet e o servidor (mesma do backend).
+const FUTURE_TOLERANCE_MS = 5 * 60 * 1000
+
+const kmToInput = (value) => (value == null ? '' : String(value))
+const initialBrandModel = (vehicle) => [vehicle.brand, vehicle.model].filter(Boolean).join(' ')
+const noCheck = { error: null, warning: null }
 
 function formatDateTime(value) {
   return value ? new Date(value).toLocaleString('pt-BR') : '----'
@@ -31,19 +43,30 @@ function SectionHeader({ number, icon, title }) {
   )
 }
 
+function ReadOnlyField({ label, title = READONLY_TITLE, children }) {
+  return (
+    <div className="flex flex-1 flex-col gap-1">
+      <p className={labelClass}>{label}</p>
+      <div title={title} className={readOnlyClass + ' flex items-center'}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 /**
- * Mesmo critério de `AccessLogEditPage.jsx`: só é editável o que tem um
- * endpoint de update de verdade por trás — veículo (PUT /vehicles/:id),
- * motorista (PUT /people/:id) e, se o guincho for um veículo cadastrado da
- * própria frota, esse veículo também (mesmo endpoint). Placa de guincho de
- * terceiro (`transportedByPlate`, texto solto em `fleet_logs`) e todo o
- * resto (destino, motivo, KM, combustível, datas) não tem endpoint de
- * update pra `fleet_logs` em si — fica visível mas bloqueado.
+ * Veículo, motorista e guincho cadastrado são editáveis por qualquer operador
+ * (PUT /vehicles/:id e PUT /people/:id — cadastros compartilhados). Os dados
+ * do registro de frota em si (destino, motivo, KM, datas) só por admin, via
+ * PUT /fleet-logs/:id — para os demais ficam visíveis mas bloqueados. Placa
+ * de guincho de terceiro (`transportedByPlate`) continua bloqueada pra todos.
  */
 export default function FleetLogEditPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { error, detail } = useFleetLogDetail(id)
+  const { user } = useAuth()
+  const isAdmin = !!(user?.rules & RULES.ADMIN)
   const [gatesList, setGatesList] = useState([])
   const [selectedGateId, setSelectedGateId] = useState('all')
 
@@ -54,6 +77,14 @@ export default function FleetLogEditPage() {
   const [driverType, setDriverType] = useState(3)
   const [towPlate, setTowPlate] = useState('')
   const [towBrandModel, setTowBrandModel] = useState('')
+  const [destination, setDestination] = useState('')
+  const [purpose, setPurpose] = useState('')
+  const [kmDeparture, setKmDeparture] = useState('')
+  const [kmReturn, setKmReturn] = useState('')
+  const [kmUnavailable, setKmUnavailable] = useState(false)
+  const [kmWarningAck, setKmWarningAck] = useState(false)
+  const [departureTime, setDepartureTime] = useState('')
+  const [returnTime, setReturnTime] = useState('')
   const [submitError, setSubmitError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -64,7 +95,7 @@ export default function FleetLogEditPage() {
   useEffect(() => {
     if (!detail) return
     setPlate(detail.vehicle.licensePlate ?? '')
-    setBrandModel([detail.vehicle.brand, detail.vehicle.model].filter(Boolean).join(' '))
+    setBrandModel(initialBrandModel(detail.vehicle))
     if (detail.driver) {
       setDriverName(detail.driver.name ?? '')
       setDriverCpf(formatCpf(detail.driver.cpf))
@@ -72,14 +103,85 @@ export default function FleetLogEditPage() {
     }
     if (detail.transportingVehicle) {
       setTowPlate(detail.transportingVehicle.licensePlate ?? '')
-      setTowBrandModel([detail.transportingVehicle.brand, detail.transportingVehicle.model].filter(Boolean).join(' '))
+      setTowBrandModel(initialBrandModel(detail.transportingVehicle))
     }
+    const { log } = detail
+    setDestination(log.destination ?? '')
+    setPurpose(log.purpose ?? '')
+    setKmDeparture(kmToInput(log.kmDeparture))
+    setKmReturn(kmToInput(log.kmReturn))
+    setKmUnavailable(!!log.isKmUnavailable)
+    setDepartureTime(toDateTimeLocal(log.departureTime))
+    setReturnTime(toDateTimeLocal(log.returnTime))
   }, [detail])
 
   const driverCpfDigits = driverCpf.replace(/\D/g, '')
   // CPF é opcional em people — só precisa ser válido quando algo foi
   // digitado, mesmo critério já usado em PersonFormDrawer/AccessLogEditPage.
-  const driverCpfIsValid = driverCpfDigits.length === 0 || isValidCpf(driverCpfDigits)
+  // CPF já gravado (mesmo inválido, de cadastro antigo) não trava o
+  // formulário — só um CPF novo digitado precisa ser válido.
+  const driverCpfIsValid =
+    driverCpfDigits.length === 0 ||
+    isValidCpf(driverCpfDigits) ||
+    driverCpfDigits === (detail?.driver?.cpf ?? '').replace(/\D/g, '')
+
+  const log = detail?.log
+  const hasReturned = !!log?.returnTime
+  const kmChanged =
+    !!log &&
+    (kmDeparture !== kmToInput(log.kmDeparture) ||
+      (hasReturned && kmReturn !== kmToInput(log.kmReturn)) ||
+      kmUnavailable !== !!log.isKmUnavailable)
+
+  // Mesmas regras da saída/retorno (o backend é a fonte da verdade). Só
+  // valida quando o KM foi mexido — registro antigo sem KM pode ter o destino
+  // corrigido sem exigir KM, igual ao backend. Na edição "KM indisponível"
+  // só dispensa a obrigatoriedade: campo vazio passa, número informado
+  // continua sendo validado.
+  const skipDeparture = kmUnavailable && kmDeparture === ''
+  const skipReturn = kmUnavailable && kmReturn === ''
+  const departureKmCheck =
+    kmChanged && !skipDeparture ? checkDepartureKm({ raw: kmDeparture, unavailable: false, lastKm: null }) : noCheck
+  const returnKmCheck =
+    kmChanged && hasReturned && !skipReturn
+      ? checkReturnKm({ raw: kmReturn, unavailable: false, kmDeparture: parseKm(kmDeparture) })
+      : noCheck
+
+  const departureDate = fromDateTimeLocal(departureTime)
+  const returnDate = hasReturned ? fromDateTimeLocal(returnTime) : null
+  let dateError = null
+  if (log && isAdmin) {
+    if (!departureDate) dateError = 'Informe a data de saída.'
+    else if (hasReturned && !returnDate) dateError = 'Informe a data de retorno.'
+    else if (returnDate && new Date(returnDate) < new Date(departureDate)) {
+      dateError = 'A data de retorno não pode ser anterior à data de saída.'
+    }
+  }
+
+  // Checado só ao salvar (depende da hora atual).
+  function hasFutureDate() {
+    const limit = Date.now() + FUTURE_TOLERANCE_MS
+    return [departureDate, returnDate].some((date) => date && new Date(date).getTime() > limit)
+  }
+
+  const logFieldsBlocked =
+    isAdmin &&
+    (!!departureKmCheck.error || !!returnKmCheck.error || (!!returnKmCheck.warning && !kmWarningAck) || !!dateError)
+
+  // Só manda o que mudou — o backend trata campo ausente como "mantém".
+  function buildLogPayload() {
+    const payload = {}
+    if (destination !== (log.destination ?? '')) payload.destination = destination
+    if (purpose !== (log.purpose ?? '')) payload.purpose = purpose
+    if (departureTime !== toDateTimeLocal(log.departureTime)) payload.departureTime = departureDate
+    if (hasReturned && returnTime !== toDateTimeLocal(log.returnTime)) payload.returnTime = returnDate
+    if (kmChanged) {
+      payload.kmDeparture = parseKm(kmDeparture)
+      if (hasReturned) payload.kmReturn = parseKm(kmReturn)
+      payload.isKmUnavailable = kmUnavailable
+    }
+    return payload
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -88,17 +190,40 @@ export default function FleetLogEditPage() {
       setSubmitError('CPF do motorista inválido.')
       return
     }
+    if (logFieldsBlocked) {
+      setSubmitError('Corrija os campos destacados antes de salvar.')
+      return
+    }
+    if (isAdmin && hasFutureDate()) {
+      setSubmitError('A data não pode estar no futuro.')
+      return
+    }
     setIsSubmitting(true)
     try {
-      await api.put(`/vehicles/${detail.vehicle.id}`, { licensePlate: plate, model: brandModel || undefined })
-      if (detail.driver) {
+      // Só regrava o cadastro que mudou: o campo único "Marca / Modelo" é
+      // gravado inteiro em `model`, e regravar sem mudança duplicaria a
+      // marca ("Volvo" + "Volvo FH 540").
+      if (plate !== (detail.vehicle.licensePlate ?? '') || brandModel !== initialBrandModel(detail.vehicle)) {
+        await api.put(`/vehicles/${detail.vehicle.id}`, { licensePlate: plate, model: brandModel || undefined })
+      }
+      const driverChanged =
+        detail.driver &&
+        (driverName !== (detail.driver.name ?? '') ||
+          driverCpfDigits !== (detail.driver.cpf ?? '').replace(/\D/g, '') ||
+          driverType !== detail.driver.personType)
+      if (driverChanged) {
         // CPF não é normalizado pelo backend (fica salvo exatamente como
         // chega) — envia só os dígitos, mesmo tratamento já usado no resto
         // do app.
         await api.put(`/people/${detail.driver.id}`, { name: driverName, cpf: driverCpfDigits, personType: driverType })
       }
-      if (detail.transportingVehicle) {
-        await api.put(`/vehicles/${detail.transportingVehicle.id}`, { licensePlate: towPlate, model: towBrandModel || undefined })
+      const tow = detail.transportingVehicle
+      if (tow && (towPlate !== (tow.licensePlate ?? '') || towBrandModel !== initialBrandModel(tow))) {
+        await api.put(`/vehicles/${tow.id}`, { licensePlate: towPlate, model: towBrandModel || undefined })
+      }
+      if (isAdmin) {
+        const payload = buildLogPayload()
+        if (Object.keys(payload).length > 0) await api.put(`/fleet-logs/${id}`, payload)
       }
       navigate(`/fleet/${id}`)
     } catch (err) {
@@ -232,12 +357,9 @@ export default function FleetLogEditPage() {
                   </div>
                 ) : (
                   <div className="flex gap-4">
-                    <div className="flex flex-1 flex-col gap-1">
-                      <p className={labelClass}>Placa (veículo de terceiro)</p>
-                      <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                        {formatPlateInput(detail.log.transportedByPlate)}
-                      </div>
-                    </div>
+                    <ReadOnlyField label="Placa (veículo de terceiro)" title={TOW_PLATE_TITLE}>
+                      {formatPlateInput(detail.log.transportedByPlate)}
+                    </ReadOnlyField>
                     <div className="flex-1" />
                   </div>
                 )}
@@ -249,54 +371,147 @@ export default function FleetLogEditPage() {
 
           <div className="flex flex-col gap-2">
             <SectionHeader number={destinationSectionNumber} icon={<MapPin className="size-4 text-ink" strokeWidth={1.75} />} title="Destino & Motivo" />
-            <div className="flex gap-4">
-              <div className="flex flex-1 flex-col gap-1">
-                <p className={labelClass}>Destino</p>
-                <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                  {detail.log.destination ?? '—'}
+            {isAdmin ? (
+              <div className="flex gap-4">
+                <div className="flex flex-1 flex-col gap-1">
+                  <label htmlFor="destination" className={labelClass}>
+                    Destino
+                  </label>
+                  <input
+                    id="destination"
+                    value={destination}
+                    maxLength={255}
+                    onChange={(e) => setDestination(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-1">
+                  <label htmlFor="purpose" className={labelClass}>
+                    Motivo
+                  </label>
+                  <input
+                    id="purpose"
+                    value={purpose}
+                    maxLength={255}
+                    onChange={(e) => setPurpose(e.target.value)}
+                    className={inputClass}
+                  />
                 </div>
               </div>
-              <div className="flex flex-1 flex-col gap-1">
-                <p className={labelClass}>Motivo</p>
-                <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                  {detail.log.purpose ?? '—'}
-                </div>
+            ) : (
+              <div className="flex gap-4">
+                <ReadOnlyField label="Destino">{detail.log.destination ?? '—'}</ReadOnlyField>
+                <ReadOnlyField label="Motivo">{detail.log.purpose ?? '—'}</ReadOnlyField>
               </div>
-            </div>
+            )}
           </div>
 
           <hr className="border-gray-200" />
 
           <div className="flex flex-col gap-2">
             <SectionHeader number={registrySectionNumber} icon={<Clock className="size-4 text-ink" strokeWidth={1.75} />} title="Registro de Saída/Retorno" />
-            <div className="flex gap-4">
-              <div className="flex flex-1 flex-col gap-1">
-                <p className={labelClass}>Data de Saída</p>
-                <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                  {formatDateTime(detail.log.departureTime)} — {detail.departureGate.name}
+            {isAdmin ? (
+              <>
+                <div className="flex gap-4">
+                  <div className="flex flex-1 flex-col gap-1">
+                    <label htmlFor="departure-time" className={labelClass}>
+                      Data de Saída <span className="normal-case text-muted">— {detail.departureGate.name}</span>
+                    </label>
+                    <input
+                      id="departure-time"
+                      type="datetime-local"
+                      value={departureTime}
+                      onChange={(e) => setDepartureTime(e.target.value)}
+                      required
+                      className={inputClass}
+                    />
+                  </div>
+                  {hasReturned ? (
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label htmlFor="return-time" className={labelClass}>
+                        Data de Retorno
+                        {detail.returnGate && <span className="normal-case text-muted"> — {detail.returnGate.name}</span>}
+                      </label>
+                      <input
+                        id="return-time"
+                        type="datetime-local"
+                        value={returnTime}
+                        onChange={(e) => setReturnTime(e.target.value)}
+                        required
+                        className={inputClass}
+                      />
+                    </div>
+                  ) : (
+                    <ReadOnlyField label="Data de Retorno" title={NOT_RETURNED_TITLE}>
+                      ----
+                    </ReadOnlyField>
+                  )}
                 </div>
-              </div>
-              <div className="flex flex-1 flex-col gap-1">
-                <p className={labelClass}>Data de Retorno</p>
-                <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                  {detail.log.returnTime ? `${formatDateTime(detail.log.returnTime)} — ${detail.returnGate?.name}` : '----'}
+                {dateError && <p className="text-[13px] font-semibold text-red-600">{dateError}</p>}
+
+                <div className="flex gap-4">
+                  <div className="flex flex-1 flex-col gap-1">
+                    <label htmlFor="km-departure" className={labelClass}>
+                      KM de Saída{!kmUnavailable && <span className="text-red-600"> *</span>}
+                    </label>
+                    <input
+                      id="km-departure"
+                      inputMode="numeric"
+                      value={kmDeparture}
+                      onChange={(e) => {
+                        setKmDeparture(e.target.value.replace(/\D/g, ''))
+                        setKmWarningAck(false)
+                      }}
+                      className={inputClass}
+                    />
+                    <KmFeedbackMessage error={departureKmCheck.error} />
+                  </div>
+                  {hasReturned ? (
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label htmlFor="km-return" className={labelClass}>
+                        KM de Retorno{!kmUnavailable && <span className="text-red-600"> *</span>}
+                      </label>
+                      <input
+                        id="km-return"
+                        inputMode="numeric"
+                        value={kmReturn}
+                        onChange={(e) => {
+                          setKmReturn(e.target.value.replace(/\D/g, ''))
+                          setKmWarningAck(false)
+                        }}
+                        className={inputClass}
+                      />
+                      <KmFeedbackMessage
+                        error={returnKmCheck.error}
+                        warning={returnKmCheck.warning}
+                        acknowledged={kmWarningAck}
+                        onAcknowledge={setKmWarningAck}
+                      />
+                    </div>
+                  ) : (
+                    <ReadOnlyField label="KM de Retorno" title={NOT_RETURNED_TITLE}>
+                      ----
+                    </ReadOnlyField>
+                  )}
                 </div>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <div className="flex flex-1 flex-col gap-1">
-                <p className={labelClass}>KM de Saída</p>
-                <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                  {displayKmDeparture(detail.log)}
+                <KmUnavailableCheckbox checked={kmUnavailable} onChange={setKmUnavailable} />
+              </>
+            ) : (
+              <>
+                <div className="flex gap-4">
+                  <ReadOnlyField label="Data de Saída">
+                    {formatDateTime(detail.log.departureTime)} — {detail.departureGate.name}
+                  </ReadOnlyField>
+                  <ReadOnlyField label="Data de Retorno">
+                    {detail.log.returnTime ? `${formatDateTime(detail.log.returnTime)} — ${detail.returnGate?.name}` : '----'}
+                  </ReadOnlyField>
                 </div>
-              </div>
-              <div className="flex flex-1 flex-col gap-1">
-                <p className={labelClass}>KM de Retorno</p>
-                <div title={READONLY_TITLE} className={readOnlyClass + ' flex items-center'}>
-                  {displayKmReturn(detail.log)}
+                <div className="flex gap-4">
+                  <ReadOnlyField label="KM de Saída">{displayKmDeparture(detail.log)}</ReadOnlyField>
+                  <ReadOnlyField label="KM de Retorno">{displayKmReturn(detail.log)}</ReadOnlyField>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
           {submitError && <p className="text-sm text-red-600">{submitError}</p>}
@@ -304,7 +519,7 @@ export default function FleetLogEditPage() {
           <div className="mt-auto flex items-center justify-end gap-3 pt-2">
             <button
               type="submit"
-              disabled={isSubmitting || (!!detail.driver && !driverCpfIsValid)}
+              disabled={isSubmitting || (!!detail.driver && !driverCpfIsValid) || logFieldsBlocked}
               className="rounded-[10px] bg-brand px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
             >
               {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
