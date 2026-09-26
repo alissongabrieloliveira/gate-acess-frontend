@@ -4,6 +4,7 @@ import SlideOver from '../../components/SlideOver'
 import { api, toAbsoluteUrl } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPhone, formatRg, isValidCpf } from '../../lib/format'
+import { formatPersonName, handleNameChange } from '../../lib/nameCase'
 import { PERSON_TYPES } from './usePeopleData'
 
 const inputClass =
@@ -185,7 +186,7 @@ export default function PersonFormDrawer({ person, onClose, onSaved }) {
               type="text"
               required
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => handleNameChange(event, formatPersonName, setName)}
               placeholder="Nome completo"
               className={inputClass}
             />

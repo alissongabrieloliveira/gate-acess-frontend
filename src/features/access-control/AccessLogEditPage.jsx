@@ -10,6 +10,7 @@ import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, isValidCpf } from '../../lib/format'
 import { parseKm } from '../../lib/km'
 import { RULES } from '../../lib/rules'
+import { formatPersonName, handleNameChange } from '../../lib/nameCase'
 import { checkEntryKm, checkExitKm, displayKmEntry, displayKmExit, isKmRequired } from './kmRules'
 import { PERSON_TYPES } from './useAccessControlData'
 import { useAccessLogDetail } from './useAccessLogDetail'
@@ -284,7 +285,7 @@ export default function AccessLogEditPage() {
             <div className="flex gap-4">
               <div className="flex flex-1 flex-col gap-1">
                 <label className={labelClass}>Nome Completo</label>
-                <input value={name} onChange={(e) => setName(e.target.value)} required className={inputClass} />
+                <input value={name} onChange={(e) => handleNameChange(e, formatPersonName, setName)} required className={inputClass} />
               </div>
               <div className="flex flex-1 flex-col gap-1">
                 <label className={labelClass}>CPF</label>

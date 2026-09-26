@@ -7,6 +7,7 @@ import { useAuth } from '../../lib/auth'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCnpj, formatCpf, formatPhone, isValidCnpj, isValidCpf } from '../../lib/format'
 import { RULES } from '../../lib/rules'
+import { formatPersonName, handleNameChange } from '../../lib/nameCase'
 import { useSettingsData } from './useSettingsData'
 
 const inputClass =
@@ -296,7 +297,7 @@ export default function SettingsPage() {
                 <label className={labelClass}>Nome Completo</label>
                 <input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => handleNameChange(e, formatPersonName, setName)}
                   required
                   disabled={!isEditingProfile}
                   className={inputClass}

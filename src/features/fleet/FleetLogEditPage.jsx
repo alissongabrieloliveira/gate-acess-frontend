@@ -10,6 +10,7 @@ import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
 import { parseKm } from '../../lib/km'
 import { RULES } from '../../lib/rules'
+import { formatPersonName, handleNameChange } from '../../lib/nameCase'
 import { checkDepartureKm, checkReturnKm, displayKmDeparture, displayKmReturn } from './kmRules'
 import { PERSON_TYPES } from './useFleetData'
 import { useFleetLogDetail } from './useFleetLogDetail'
@@ -308,7 +309,7 @@ export default function FleetLogEditPage() {
                 <div className="flex gap-4">
                   <div className="flex flex-1 flex-col gap-1">
                     <label className={labelClass}>Nome Completo</label>
-                    <input value={driverName} onChange={(e) => setDriverName(e.target.value)} required className={inputClass} />
+                    <input value={driverName} onChange={(e) => handleNameChange(e, formatPersonName, setDriverName)} required className={inputClass} />
                   </div>
                   <div className="flex flex-1 flex-col gap-1">
                     <label className={labelClass}>CPF</label>

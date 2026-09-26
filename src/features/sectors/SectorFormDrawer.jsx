@@ -3,6 +3,7 @@ import SlideOver from '../../components/SlideOver'
 import ToggleSwitch from '../../components/ToggleSwitch'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
+import { formatPlaceName, handleNameChange } from '../../lib/nameCase'
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
@@ -100,7 +101,7 @@ export default function SectorFormDrawer({ sector, onClose, onSaved }) {
               type="text"
               required
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => handleNameChange(event, formatPlaceName, setName)}
               placeholder="Ex.: Almoxarifado"
               className={inputClass}
             />

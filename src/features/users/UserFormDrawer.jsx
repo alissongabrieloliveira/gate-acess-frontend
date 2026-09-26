@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, isValidCpf } from '../../lib/format'
 import { RULES } from '../../lib/rules'
+import { formatPersonName, handleNameChange } from '../../lib/nameCase'
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
@@ -131,7 +132,7 @@ export default function UserFormDrawer({ user, onClose, onSaved }) {
               type="text"
               required
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => handleNameChange(event, formatPersonName, setName)}
               placeholder="Nome completo"
               className={inputClass}
             />

@@ -7,6 +7,7 @@ import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
 import { formatKm, parseKm } from '../../lib/km'
+import { formatPersonName, handleNameChange } from '../../lib/nameCase'
 import { checkEntryKm, isKmRequired, VEHICLE_TYPE_FLEET } from './kmRules'
 import { openPrintWindow, printReceipt } from './printReceipt'
 import { PERSON_TYPE_LABELS, PERSON_TYPES } from './useAccessControlData'
@@ -440,7 +441,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
               required
               value={name}
               disabled={!!existingPerson}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(event) => handleNameChange(event, formatPersonName, setName)}
               onFocus={() => setNameFocused(true)}
               onBlur={() => setNameFocused(false)}
               placeholder="Nome completo"
