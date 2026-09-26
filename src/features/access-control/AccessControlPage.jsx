@@ -67,7 +67,7 @@ export default function AccessControlPage() {
   // IDs pra exibição.
   const enrichedLogs = useMemo(() => {
     if (!lookups) return []
-    return logs.map((log) => enrichLog(log, lookups))
+    return logs.map((log) => enrichLog(log))
   }, [logs, lookups])
 
   function changeFilter(key) {

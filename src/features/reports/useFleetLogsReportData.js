@@ -8,17 +8,12 @@ export const PAGE_SIZE = 8
 const EXPORT_PAGE_SIZE = 100
 const EXPORT_MAX_PAGES = 20
 
-function byId(records) {
-  return new Map(records.map((record) => [record.id, record]))
-}
-
 // Extraído do hook pra ser reaproveitado pela exportação em PDF (nome
 // diferente de enrichFleetLog em features/fleet/useFleetData.js — mesmo
 // formato, módulo separado, evita confundir os dois na tela de Frota
 // operacional).
-export function enrichFleetLogReport(log, lookups) {
-  const vehicle = lookups.vehiclesById.get(log.vehicleId)
-  const driver = log.driverId ? lookups.peopleById.get(log.driverId) : null
+export function enrichFleetLogReport(log) {
+  const { vehicle, driver } = log
   return {
     ...log,
     vehiclePlate: vehicle?.licensePlate ?? null,
@@ -54,26 +49,7 @@ export async function fetchAllFleetLogs({ status, from, to, search }) {
 // nenhuma no backend. Complementa Controle de Frota (que só mostra o que
 // está na rua/retornado agora) com um histórico filtrável por período.
 export function useFleetLogsReportData({ page, status, from, to, search }) {
-  const [lookups, setLookups] = useState(null)
-  const [lookupsError, setLookupsError] = useState(null)
   const [state, setState] = useState({ isLoading: true, error: null, logs: [], pagination: null })
-
-  const loadLookups = useCallback(async () => {
-    try {
-      const [vehiclesRes, peopleRes, gatesRes] = await Promise.all([
-        api.get('/vehicles', { params: { limit: 100 } }),
-        api.get('/people', { params: { limit: 100 } }),
-        api.get('/gates', { params: { limit: 100 } }),
-      ])
-      setLookups({
-        vehiclesById: byId(vehiclesRes.data.data),
-        peopleById: byId(peopleRes.data.data),
-        gatesById: byId(gatesRes.data.data),
-      })
-    } catch (err) {
-      setLookupsError(err)
-    }
-  }, [])
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, isLoading: true, error: null }))
@@ -95,14 +71,10 @@ export function useFleetLogsReportData({ page, status, from, to, search }) {
   }, [page, status, from, to, search])
 
   useEffect(() => {
-    loadLookups()
-  }, [loadLookups])
-
-  useEffect(() => {
     load()
   }, [load])
 
-  const enrichedLogs = lookups ? state.logs.map((log) => enrichFleetLogReport(log, lookups)) : []
+  const enrichedLogs = state.logs.map(enrichFleetLogReport)
 
-  return { ...state, logs: enrichedLogs, lookups, lookupsError, refetch: load }
+  return { ...state, logs: enrichedLogs, refetch: load }
 }

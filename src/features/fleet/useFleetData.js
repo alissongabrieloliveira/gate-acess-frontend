@@ -19,9 +19,9 @@ function byId(records) {
 }
 
 /**
- * Mesmo padrão de `useAccessControlData` — cadastros (vehicles/people/gates)
- * carregados uma vez como "lookups" (amostra parcial de até 100) pra resolver
- * placa/motorista/portão nos fleet_logs, que só trazem IDs.
+ * Mesmo padrão de `useAccessControlData` — só os portões são carregados como
+ * "lookup" (filtro de posto e portão padrão da saída). Placa/motorista/
+ * guincho/portão de cada fleet_log já vêm anexados pelo backend.
  */
 // `search` (placa/motorista/destino) é resolvido pelo backend contra TODOS
 // os fleet_logs da empresa, não só a página carregada — GET
@@ -37,16 +37,8 @@ export function useFleetData({ status, page, search }) {
 
   const loadLookups = useCallback(async () => {
     try {
-      const [vehiclesRes, peopleRes, gatesRes] = await Promise.all([
-        api.get('/vehicles', { params: { limit: 100 } }),
-        api.get('/people', { params: { limit: 100 } }),
-        api.get('/gates', { params: { limit: 100 } }),
-      ])
+      const gatesRes = await api.get('/gates', { params: { limit: 100 } })
       setLookups({
-        vehiclesById: byId(vehiclesRes.data.data),
-        vehicles: vehiclesRes.data.data,
-        peopleById: byId(peopleRes.data.data),
-        people: peopleRes.data.data,
         gatesById: byId(gatesRes.data.data),
         gatesList: gatesRes.data.data,
       })
@@ -98,12 +90,9 @@ export function useFleetData({ status, page, search }) {
   return { lookups, lookupsError, counts, ...logsState, refetch }
 }
 
-export function enrichFleetLog(log, lookups) {
-  const vehicle = lookups.vehiclesById.get(log.vehicleId)
-  const driver = log.driverId ? lookups.peopleById.get(log.driverId) : null
-  const transportingVehicle = log.transportingVehicleId ? lookups.vehiclesById.get(log.transportingVehicleId) : null
-  const departureGate = lookups.gatesById.get(log.departureGateId)
-  const returnGate = log.returnGateId ? lookups.gatesById.get(log.returnGateId) : null
+// Os dados relacionados já vêm no próprio log (backend, GET /fleet-logs).
+export function enrichFleetLog(log) {
+  const { vehicle, driver, transportingVehicle, departureGate, returnGate } = log
   return {
     ...log,
     vehiclePlate: vehicle?.licensePlate ?? null,

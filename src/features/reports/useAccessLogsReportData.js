@@ -12,18 +12,11 @@ export const PAGE_SIZE = 8
 const EXPORT_PAGE_SIZE = 100
 const EXPORT_MAX_PAGES = 20
 
-function byId(records) {
-  return new Map(records.map((record) => [record.id, record]))
-}
-
-// Extraído de dentro do hook pra ser reaproveitado pela exportação em PDF,
-// que resolve nome/placa/portão sobre TODOS os registros do filtro atual
-// (não só a página de 8 já carregada na tela).
-export function enrichAccessLog(log, lookups) {
-  const person = lookups.peopleById.get(log.personId)
-  const vehicle = log.vehicleId ? lookups.vehiclesById.get(log.vehicleId) : null
-  const entryGate = lookups.gatesById.get(log.entryGateId)
-  const exitGate = log.exitGateId ? lookups.gatesById.get(log.exitGateId) : null
+// Extraído de dentro do hook pra ser reaproveitado pela exportação em PDF
+// (todos os registros do filtro atual). Nome/placa/portão já vêm anexados
+// em cada log pelo backend (GET /access-logs).
+export function enrichAccessLog(log) {
+  const { person, vehicle, entryGate, exitGate } = log
   return {
     ...log,
     personName: person?.name ?? `Pessoa #${log.personId}`,
@@ -56,34 +49,11 @@ export async function fetchAllAccessLogs({ status, from, to, search }) {
   return allLogs
 }
 
-// Mesmo padrão de "lookups" já usado em Controle de Acessos/Frota: os
-// cadastros (people/vehicles/gates) só entram como amostra de até 100 pra
-// resolver nome/placa/portão a partir dos IDs que access_logs guarda.
-// `GET /access-logs` já suporta status/from/to/search/page — sem mudança
-// nenhuma no backend, só um consumo novo com foco em histórico por período
-// em vez de "o que está ativo agora" (que já é o papel de Controle de
-// Acessos).
+// `GET /access-logs` já suporta status/from/to/search/page — consumo com
+// foco em histórico por período em vez de "o que está ativo agora" (que já é
+// o papel de Controle de Acessos).
 export function useAccessLogsReportData({ page, status, from, to, search }) {
-  const [lookups, setLookups] = useState(null)
-  const [lookupsError, setLookupsError] = useState(null)
   const [state, setState] = useState({ isLoading: true, error: null, logs: [], pagination: null })
-
-  const loadLookups = useCallback(async () => {
-    try {
-      const [peopleRes, vehiclesRes, gatesRes] = await Promise.all([
-        api.get('/people', { params: { limit: 100 } }),
-        api.get('/vehicles', { params: { limit: 100 } }),
-        api.get('/gates', { params: { limit: 100 } }),
-      ])
-      setLookups({
-        peopleById: byId(peopleRes.data.data),
-        vehiclesById: byId(vehiclesRes.data.data),
-        gatesById: byId(gatesRes.data.data),
-      })
-    } catch (err) {
-      setLookupsError(err)
-    }
-  }, [])
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, isLoading: true, error: null }))
@@ -105,14 +75,10 @@ export function useAccessLogsReportData({ page, status, from, to, search }) {
   }, [page, status, from, to, search])
 
   useEffect(() => {
-    loadLookups()
-  }, [loadLookups])
-
-  useEffect(() => {
     load()
   }, [load])
 
-  const enrichedLogs = lookups ? state.logs.map((log) => enrichAccessLog(log, lookups)) : []
+  const enrichedLogs = state.logs.map(enrichAccessLog)
 
-  return { ...state, logs: enrichedLogs, lookups, lookupsError, refetch: load }
+  return { ...state, logs: enrichedLogs, refetch: load }
 }

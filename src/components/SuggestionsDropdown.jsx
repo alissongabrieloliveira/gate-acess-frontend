@@ -1,11 +1,10 @@
 export const MAX_SUGGESTIONS = 5
 
 /**
- * Dropdown de sugestões (busca inteligente) — filtra um array já carregado
- * (ex.: `lookups.people`/`lookups.vehicles`, amostra parcial de até 100
- * registros) direto no cliente, sem round-trip nenhum. Usado em mais de um
- * slide-over (Controle de Acessos, Controle de Frota), por isso mora em
- * components/ em vez de dentro de uma única feature.
+ * Dropdown de sugestões (busca inteligente) — só exibe os itens recebidos;
+ * quem busca é o chamador (hoje, no servidor, via useRemoteSuggestions /
+ * RecordPicker). Usado em mais de um slide-over (Controle de Acessos,
+ * Controle de Frota), por isso mora em components/.
  */
 export default function SuggestionsDropdown({ items, renderItem, onSelect }) {
   if (items.length === 0) return null

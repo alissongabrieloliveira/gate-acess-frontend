@@ -1,8 +1,10 @@
 import { Camera, ChevronDown, ChevronUp, ImageIcon, Search, Upload } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
+import RecordPicker from '../../components/RecordPicker'
 import SlideOver from '../../components/SlideOver'
 import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
+import { useRemoteSuggestions } from '../../hooks/useRemoteSuggestions'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
@@ -78,7 +80,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const [kmWarning, setKmWarning] = useState(null)
   const [kmWarningAck, setKmWarningAck] = useState(false)
   const [destinationSectorId, setDestinationSectorId] = useState('')
-  const [visitedPersonId, setVisitedPersonId] = useState('')
+  const [visitedPerson, setVisitedPerson] = useState(null)
   const [vehicleSectionOpen, setVehicleSectionOpen] = useState(true)
   // Foto da VISITA (tipicamente do veículo entrando), não da pessoa — vive em
   // access_logs.photo_url, não em people.photo_url (ver access-logs.service.js
@@ -147,39 +149,47 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     setKmWarningAck(false)
   }
 
-  // Só sugere pessoa com CPF cadastrado — selecionar uma preenche o campo
-  // CPF com o valor completo, que aciona o `personLookup` normal (o mesmo
-  // fluxo de sempre) pra confirmar/travar o registro. Pessoa sem CPF nunca
-  // teria como "travar" por esse caminho, e o formulário já exige CPF pra
-  // submeter de qualquer forma (ver `canSubmit` abaixo) — não é uma
-  // limitação nova introduzida pela busca inteligente.
-  const peopleWithCpf = useMemo(() => lookups.people.filter((p) => p.cpf), [lookups.people])
-
+  // Sugestões buscadas no servidor (todas as pessoas/veículos da empresa, não
+  // uma amostra). Só sugere pessoa com CPF cadastrado — selecionar uma
+  // preenche o campo CPF com o valor completo, que aciona o `personLookup`
+  // normal pra confirmar/travar o registro; o formulário já exige CPF pra
+  // submeter de qualquer forma (ver `canSubmit` abaixo).
   const cpfDigits = cpf.replace(/\D/g, '')
-  const cpfSuggestions = useMemo(() => {
-    if (existingPerson || cpfDigits.length < 3) return []
-    return peopleWithCpf.filter((p) => p.cpf.replace(/\D/g, '').includes(cpfDigits)).slice(0, MAX_SUGGESTIONS)
-  }, [peopleWithCpf, cpfDigits, existingPerson])
+  const { items: cpfSuggestions } = useRemoteSuggestions(cpfDigits, {
+    minLength: 3,
+    enabled: !existingPerson,
+    fetchItems: async (term) => {
+      const { data } = await api.get('/people', { params: { search: term, limit: 20 } })
+      // A busca por dígitos também casa telefone — aqui só interessa o CPF.
+      return data.data.filter((p) => p.cpf?.replace(/\D/g, '').includes(term)).slice(0, MAX_SUGGESTIONS)
+    },
+  })
 
-  const nameQuery = name.trim().toLowerCase()
-  const nameSuggestions = useMemo(() => {
-    if (existingPerson || nameQuery.length < 2) return []
-    return peopleWithCpf.filter((p) => p.name.toLowerCase().includes(nameQuery)).slice(0, MAX_SUGGESTIONS)
-  }, [peopleWithCpf, nameQuery, existingPerson])
+  const { items: nameSuggestions } = useRemoteSuggestions(name, {
+    minLength: 2,
+    enabled: !existingPerson,
+    fetchItems: async (term) => {
+      const { data } = await api.get('/people', { params: { search: term, limit: 20 } })
+      return data.data.filter((p) => p.cpf).slice(0, MAX_SUGGESTIONS)
+    },
+  })
 
   // Só compara por placa (não marca/modelo): o campo já aplica a máscara de
   // placa a cada tecla, então qualquer texto que não pareça placa (ex.:
   // digitar "onix" pra buscar por modelo) chega aqui já deformado pela
-  // máscara ("ONI-X") — comparar contra marca/modelo nesse estado sempre
-  // falharia. Manter o escopo só na placa evita esse bug.
+  // máscara ("ONI-X"). Manter o escopo só na placa evita esse bug.
   const plateDigits = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-  const vehicleSuggestions = useMemo(() => {
-    if (existingVehicle || plateDigits.length < 2) return []
-    // Frota Própria tem tela exclusiva (Controle de Frota): nunca sugerida aqui.
-    return lookups.vehicles
-      .filter((v) => v.vehicleType !== VEHICLE_TYPE_FLEET && v.licensePlate?.toUpperCase().includes(plateDigits))
-      .slice(0, MAX_SUGGESTIONS)
-  }, [lookups.vehicles, plateDigits, existingVehicle])
+  const { items: vehicleSuggestions } = useRemoteSuggestions(plateDigits, {
+    minLength: 2,
+    enabled: !existingVehicle,
+    fetchItems: async (term) => {
+      const { data } = await api.get('/vehicles', { params: { search: term, limit: 20 } })
+      // Frota Própria tem tela exclusiva (Controle de Frota): nunca sugerida aqui.
+      return data.data
+        .filter((v) => v.vehicleType !== VEHICLE_TYPE_FLEET && v.licensePlate?.toUpperCase().includes(term))
+        .slice(0, MAX_SUGGESTIONS)
+    },
+  })
 
   function selectPerson(person) {
     setCpf(formatCpf(person.cpf))
@@ -246,13 +256,12 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   // Funcionário entrando não está visitando ninguém, está indo trabalhar —
   // só Visitante/Prestador (personType 1/2) exigem anfitrião.
   const hostRequired = personType !== 3
-  const hostOptions = useMemo(() => lookups.people.filter((p) => p.personType === 3), [lookups.people])
   const canSubmit =
     newEntryCpfDigits.length >= 11 &&
     newEntryCpfIsValid &&
     name.trim() &&
     destinationSectorId &&
-    (!hostRequired || visitedPersonId) &&
+    (!hostRequired || visitedPerson) &&
     !personBlocked &&
     !vehicleBlocked &&
     !vehicleIsFleet
@@ -310,7 +319,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
         personId,
         vehicleId: vehicleId || undefined,
         destinationSectorId: Number(destinationSectorId),
-        visitedPersonId: visitedPersonId ? Number(visitedPersonId) : undefined,
+        visitedPersonId: hostRequired && visitedPerson ? visitedPerson.id : undefined,
         entryGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
         kmEntry: hasVehicle && !kmUnavailable ? (parseKm(kmEntry) ?? undefined) : undefined,
         isKmUnavailable: (hasVehicle && kmUnavailable) || undefined,
@@ -331,7 +340,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
           personName: name,
           personCpf: cpf,
           vehiclePlate: plate.trim() || null,
-          visitedPersonName: lookups.peopleById.get(Number(visitedPersonId))?.name,
+          visitedPersonName: hostRequired ? visitedPerson?.name : undefined,
           sectorName: lookups.sectorsById.get(Number(destinationSectorId))?.name,
           entryTime: log.entryTime,
           entryGateName: lookups.gatesById.get(log.entryGateId)?.name,
@@ -678,19 +687,21 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
           {hostRequired && (
             <div className="flex flex-col gap-1">
               <label className={labelClass}>Pessoa Visitada (Anfitrião) *</label>
-              <select
-                required
-                value={visitedPersonId}
-                onChange={(event) => setVisitedPersonId(event.target.value)}
-                className={inputClass}
-              >
-                <option value="">Selecione...</option>
-                {hostOptions.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
-              </select>
+              <RecordPicker
+                value={visitedPerson}
+                onChange={setVisitedPerson}
+                getLabel={(person) => person.name}
+                placeholder="Digite o nome do funcionário..."
+                emptyText="Nenhum funcionário encontrado."
+                inputClassName={inputClass}
+                fetchItems={async (term) => {
+                  const { data } = await api.get('/people', {
+                    params: { search: term, personType: 3, limit: MAX_SUGGESTIONS },
+                  })
+                  return data.data
+                }}
+                renderItem={(person) => <span className="text-[13px] font-semibold text-ink">{person.name}</span>}
+              />
             </div>
           )}
         </div>

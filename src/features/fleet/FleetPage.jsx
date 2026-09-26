@@ -65,7 +65,7 @@ export default function FleetPage() {
   // dos IDs pra exibição.
   const enrichedLogs = useMemo(() => {
     if (!lookups) return []
-    return logs.map((log) => enrichFleetLog(log, lookups))
+    return logs.map((log) => enrichFleetLog(log))
   }, [logs, lookups])
 
   function changeFilter(key) {

@@ -46,7 +46,7 @@ export function useDashboardData() {
       const weekStart = addDays(todayStart, -6)
 
       try {
-        const [weekRes, todayRes, yesterdayRes, peopleRes, vehiclesRes, sectorsRes, gatesRes, onTripRes] =
+        const [weekRes, todayRes, yesterdayRes, peopleRes, vehiclesRes, gatesRes, onTripRes] =
           await Promise.all([
             api.get('/access-logs', {
               params: { from: weekStart.toISOString(), to: now.toISOString(), limit: 100 },
@@ -59,7 +59,6 @@ export function useDashboardData() {
             }),
             api.get('/people', { params: { limit: 100 } }),
             api.get('/vehicles', { params: { limit: 100 } }),
-            api.get('/sectors', { params: { limit: 100 } }),
             api.get('/gates', { params: { limit: 100 } }),
             api.get('/fleet-logs/on-trip'),
           ])
@@ -103,9 +102,6 @@ export function useDashboardData() {
             recentLogs: weekLogs.slice(0, 5),
             weekLogs,
             weekLogsIsPartial: weekRes.data.pagination.total > weekLogs.length,
-            peopleById: byId(people),
-            vehiclesById: byId(vehicles),
-            sectorsById: byId(sectorsRes.data.data),
             gatesById: byId(gatesList),
             gatesList,
           },

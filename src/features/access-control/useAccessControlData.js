@@ -17,10 +17,10 @@ export const PERSON_TYPES = [
 ]
 
 /**
- * Cadastros (people/vehicles/sectors/gates) são carregados uma vez só — servem
- * de "lookup" pra resolver nome/placa/destino nos access_logs, que só trazem
- * IDs. Igual limitação documentada no dashboard: só a primeira página
- * (limit=100) de cada cadastro é buscada.
+ * Setores e portões são carregados uma vez só — alimentam os selects do
+ * "Nova Entrada" e o filtro de posto. Nome/CPF/placa/setor/portão de cada
+ * access_log já vêm anexados pelo backend (GET /access-logs), então não há
+ * mais amostra de "até 100" pessoas/veículos pra resolver as linhas.
  */
 // `search` (CPF/Nome/Placa) é resolvido pelo backend contra TODOS os
 // access_logs da empresa, não só a página carregada — GET
@@ -35,17 +35,11 @@ export function useAccessControlData({ status, page, search }) {
 
   const loadLookups = useCallback(async () => {
     try {
-      const [peopleRes, vehiclesRes, sectorsRes, gatesRes] = await Promise.all([
-        api.get('/people', { params: { limit: 100 } }),
-        api.get('/vehicles', { params: { limit: 100 } }),
+      const [sectorsRes, gatesRes] = await Promise.all([
         api.get('/sectors', { params: { limit: 100 } }),
         api.get('/gates', { params: { limit: 100 } }),
       ])
       setLookups({
-        peopleById: byId(peopleRes.data.data),
-        people: peopleRes.data.data,
-        vehiclesById: byId(vehiclesRes.data.data),
-        vehicles: vehiclesRes.data.data,
         sectorsById: byId(sectorsRes.data.data),
         sectors: sectorsRes.data.data,
         gatesById: byId(gatesRes.data.data),
@@ -91,9 +85,6 @@ export function useAccessControlData({ status, page, search }) {
   }, [loadLogs])
 
   const refetch = useCallback(() => {
-    // Recarrega os lookups também — sem isso, uma pessoa/veículo criado na
-    // hora (via NewEntryDrawer) não aparece resolvido na tabela até um reload
-    // de página inteira, já que o mapa id->registro só era buscado uma vez.
     loadLookups()
     loadLogs()
     loadCounts()
@@ -102,13 +93,9 @@ export function useAccessControlData({ status, page, search }) {
   return { lookups, lookupsError, counts, ...logsState, refetch }
 }
 
-export function enrichLog(log, lookups) {
-  const person = lookups.peopleById.get(log.personId)
-  const visitedPerson = log.visitedPersonId ? lookups.peopleById.get(log.visitedPersonId) : null
-  const vehicle = log.vehicleId ? lookups.vehiclesById.get(log.vehicleId) : null
-  const sector = log.destinationSectorId ? lookups.sectorsById.get(log.destinationSectorId) : null
-  const entryGate = lookups.gatesById.get(log.entryGateId)
-  const exitGate = log.exitGateId ? lookups.gatesById.get(log.exitGateId) : null
+// Os dados relacionados já vêm no próprio log (backend, GET /access-logs).
+export function enrichLog(log) {
+  const { person, visitedPerson, vehicle, destinationSector: sector, entryGate, exitGate } = log
   return {
     ...log,
     personName: person?.name ?? 'Pessoa não encontrada',

@@ -75,7 +75,7 @@ export default function FleetLogsReportPage() {
   const normalizedFrom = from || undefined
   const normalizedTo = to ? `${to}T23:59:59.999` : undefined
 
-  const { isLoading, error, logs, lookups, lookupsError, pagination } = useFleetLogsReportData({
+  const { isLoading, error, logs, pagination } = useFleetLogsReportData({
     page,
     status,
     from: normalizedFrom,
@@ -86,11 +86,11 @@ export default function FleetLogsReportPage() {
   // Aberto de forma síncrona no clique — mesmo padrão de AccessLogsReportPage.jsx.
   async function handleExportPdf() {
     const printWindow = openReportPrintWindow()
-    if (!printWindow || !lookups) return
+    if (!printWindow) return
     setIsExportingPdf(true)
     try {
       const allLogs = await fetchAllFleetLogs({ status, from: normalizedFrom, to: normalizedTo, search: debouncedSearch })
-      const enrichedAll = allLogs.map((log) => enrichFleetLogReport(log, lookups))
+      const enrichedAll = allLogs.map(enrichFleetLogReport)
       const filterParts = []
       if (status) filterParts.push(status === 'ON_TRIP' ? 'Status: Na Rua' : 'Status: Retornado')
       if (from) filterParts.push(`De: ${new Date(from).toLocaleDateString('pt-BR')}`)
@@ -155,7 +155,7 @@ export default function FleetLogsReportPage() {
         <button
           type="button"
           onClick={handleExportPdf}
-          disabled={!lookups || isExportingPdf}
+          disabled={isExportingPdf}
           className="flex items-center gap-1.5 rounded-[10px] border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           <FileDown className="size-4" strokeWidth={2} />
@@ -163,7 +163,7 @@ export default function FleetLogsReportPage() {
         </button>
       </div>
 
-      {(error || lookupsError) && (
+      {error && (
         <p className="text-sm text-red-600">
           Não foi possível carregar o relatório de frota. Tente novamente mais tarde.
         </p>

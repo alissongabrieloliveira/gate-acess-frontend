@@ -2,6 +2,8 @@ import { ArrowLeft, Camera, Car, Clock, MapPin, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
+import RecordPicker from '../../components/RecordPicker'
+import { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
@@ -76,13 +78,12 @@ export default function AccessLogEditPage() {
   const [plate, setPlate] = useState('')
   const [brandModel, setBrandModel] = useState('')
   const [sectors, setSectors] = useState([])
-  const [hosts, setHosts] = useState([])
   const [kmEntry, setKmEntry] = useState('')
   const [kmExit, setKmExit] = useState('')
   const [kmUnavailable, setKmUnavailable] = useState(false)
   const [kmWarningAck, setKmWarningAck] = useState(false)
   const [sectorId, setSectorId] = useState('')
-  const [hostId, setHostId] = useState('')
+  const [host, setHost] = useState(null)
   const [entryTime, setEntryTime] = useState('')
   const [exitTime, setExitTime] = useState('')
   const [submitError, setSubmitError] = useState(null)
@@ -95,9 +96,6 @@ export default function AccessLogEditPage() {
   useEffect(() => {
     if (!isAdmin) return
     api.get('/sectors', { params: { limit: 100 } }).then(({ data }) => setSectors(data.data))
-    api
-      .get('/people', { params: { personType: PERSON_TYPE_EMPLOYEE, limit: 100 } })
-      .then(({ data }) => setHosts(data.data))
   }, [isAdmin])
 
   useEffect(() => {
@@ -114,7 +112,7 @@ export default function AccessLogEditPage() {
     setKmExit(kmToInput(log.kmExit))
     setKmUnavailable(!!log.isKmUnavailable)
     setSectorId(idToInput(log.destinationSectorId))
-    setHostId(idToInput(log.visitedPersonId))
+    setHost(detail.visitedPerson ?? null)
     setEntryTime(toDateTimeLocal(log.entryTime))
     setExitTime(toDateTimeLocal(log.exitTime))
   }, [detail])
@@ -175,7 +173,7 @@ export default function AccessLogEditPage() {
   function buildLogPayload() {
     const payload = {}
     if (sectorId !== idToInput(log.destinationSectorId)) payload.destinationSectorId = sectorId ? Number(sectorId) : null
-    if (hostId !== idToInput(log.visitedPersonId)) payload.visitedPersonId = hostId ? Number(hostId) : null
+    if ((host?.id ?? null) !== (log.visitedPersonId ?? null)) payload.visitedPersonId = host?.id ?? null
     if (entryTime !== toDateTimeLocal(log.entryTime)) payload.entryTime = entryDate
     if (isFinished && exitTime !== toDateTimeLocal(log.exitTime)) payload.exitTime = exitDate
     if (kmChanged) {
@@ -439,17 +437,22 @@ export default function AccessLogEditPage() {
                   <label htmlFor="host" className={labelClass}>
                     Anfitrião
                   </label>
-                  <select id="host" value={hostId} onChange={(e) => setHostId(e.target.value)} className={inputClass}>
-                    <option value="">— Nenhum —</option>
-                    {detail.visitedPerson && !hosts.some((p) => p.id === detail.visitedPerson.id) && (
-                      <option value={detail.visitedPerson.id}>{detail.visitedPerson.name}</option>
-                    )}
-                    {hosts.map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.name}
-                      </option>
-                    ))}
-                  </select>
+                  <RecordPicker
+                    id="host"
+                    value={host}
+                    onChange={setHost}
+                    getLabel={(person) => person.name}
+                    placeholder="Nenhum — digite para buscar um funcionário..."
+                    emptyText="Nenhum funcionário encontrado."
+                    inputClassName={inputClass}
+                    fetchItems={async (term) => {
+                      const { data } = await api.get('/people', {
+                        params: { search: term, personType: PERSON_TYPE_EMPLOYEE, limit: MAX_SUGGESTIONS },
+                      })
+                      return data.data
+                    }}
+                    renderItem={(person) => <span className="text-[13px] font-semibold text-ink">{person.name}</span>}
+                  />
                 </div>
               </div>
             ) : (

@@ -75,7 +75,7 @@ export default function AccessLogsReportPage() {
   // Inclui o dia inteiro selecionado em "Até" — mesmo ajuste de Auditoria/Login.
   const normalizedTo = to ? `${to}T23:59:59.999` : undefined
 
-  const { isLoading, error, logs, lookups, lookupsError, pagination } = useAccessLogsReportData({
+  const { isLoading, error, logs, pagination } = useAccessLogsReportData({
     page,
     status,
     from: normalizedFrom,
@@ -88,11 +88,11 @@ export default function AccessLogsReportPage() {
   // usado em printReceipt.js/openPrintWindow.
   async function handleExportPdf() {
     const printWindow = openReportPrintWindow()
-    if (!printWindow || !lookups) return
+    if (!printWindow) return
     setIsExportingPdf(true)
     try {
       const allLogs = await fetchAllAccessLogs({ status, from: normalizedFrom, to: normalizedTo, search: debouncedSearch })
-      const enrichedAll = allLogs.map((log) => enrichAccessLog(log, lookups))
+      const enrichedAll = allLogs.map(enrichAccessLog)
       const filterParts = []
       if (status) filterParts.push(status === 'ACTIVE' ? 'Status: Ativo' : 'Status: Finalizado')
       if (from) filterParts.push(`De: ${new Date(from).toLocaleDateString('pt-BR')}`)
@@ -157,7 +157,7 @@ export default function AccessLogsReportPage() {
         <button
           type="button"
           onClick={handleExportPdf}
-          disabled={!lookups || isExportingPdf}
+          disabled={isExportingPdf}
           className="flex items-center gap-1.5 rounded-[10px] border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
           <FileDown className="size-4" strokeWidth={2} />
@@ -165,7 +165,7 @@ export default function AccessLogsReportPage() {
         </button>
       </div>
 
-      {(error || lookupsError) && (
+      {error && (
         <p className="text-sm text-red-600">
           Não foi possível carregar o relatório de acessos. Tente novamente mais tarde.
         </p>

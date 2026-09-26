@@ -29,7 +29,7 @@ export default function DashboardPage() {
   const recentLogs = useMemo(() => {
     if (!data) return []
     const source = selectedGateId === 'all' ? data.recentLogs : filteredWeekLogs.slice(0, 5)
-    return source.map((log) => enrichLog(log, data))
+    return source.map(enrichLog)
   }, [data, filteredWeekLogs, selectedGateId])
 
   const weeklyBuckets = useMemo(() => {
@@ -224,10 +224,9 @@ export default function DashboardPage() {
   )
 }
 
-function enrichLog(log, data) {
-  const person = data.peopleById.get(log.personId)
-  const vehicle = log.vehicleId ? data.vehiclesById.get(log.vehicleId) : null
-  const sector = log.destinationSectorId ? data.sectorsById.get(log.destinationSectorId) : null
+// Pessoa/veículo/setor já vêm anexados em cada log pelo backend.
+function enrichLog(log) {
+  const { person, vehicle, destinationSector: sector } = log
   return {
     id: log.id,
     status: log.status,

@@ -1,8 +1,10 @@
 import { ChevronDown, ChevronUp, Search } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import RecordPicker from '../../components/RecordPicker'
 import SlideOver from '../../components/SlideOver'
 import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { useCitySearch, formatCityLabel } from '../../hooks/useCitySearch'
+import { useRemoteSuggestions } from '../../hooks/useRemoteSuggestions'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
@@ -12,6 +14,20 @@ import { checkDepartureKm, formatKm, parseKm } from './kmRules'
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
 const labelClass = 'text-xs font-semibold text-gray-600'
+// vehicles.vehicle_type: 2 = Frota Própria. people.person_type: 1 = Visitante.
+const VEHICLE_TYPE_FLEET = 2
+const PERSON_TYPE_VISITOR = 1
+
+const vehicleLabel = (vehicle) => [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo'
+
+// Veículos da frota própria cuja placa contém o termo (busca no servidor).
+async function searchFleetVehicles(term, excludeId) {
+  const plateTerm = term.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  const { data } = await api.get('/vehicles', {
+    params: { search: plateTerm, vehicleType: VEHICLE_TYPE_FLEET, limit: 20 },
+  })
+  return data.data.filter((v) => v.id !== excludeId).slice(0, MAX_SUGGESTIONS)
+}
 
 function StepBadge({ number }) {
   return (
@@ -26,17 +42,16 @@ function StepBadge({ number }) {
  * podem ser cadastrados na hora (find-or-create). Aqui não — o veículo (e o
  * guincho, quando é da própria frota) só pode ser um já cadastrado como
  * "Frota Própria" em Cadastros > Veículos. Por isso a busca de placa aqui é
- * só um seletor sobre a amostra já carregada (sem criar nada inline, sem
- * confirmação assíncrona via API — o registro selecionado já É a fonte da
- * verdade, não precisa reconfirmar).
+ * só um seletor (busca no servidor, sem criar nada inline — o registro
+ * selecionado já É a fonte da verdade, não precisa reconfirmar).
  */
 export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCreated }) {
   const [plate, setPlate] = useState('')
   const [selectedVehicle, setSelectedVehicle] = useState(null)
-  const [driverId, setDriverId] = useState('')
+  const [driver, setDriver] = useState(null)
   const [towSectionOpen, setTowSectionOpen] = useState(false)
   const [towMode, setTowMode] = useState('none') // 'none' | 'fleet' | 'third-party'
-  const [towVehicleId, setTowVehicleId] = useState('')
+  const [towVehicle, setTowVehicle] = useState(null)
   const [towPlate, setTowPlate] = useState('')
   const [destination, setDestination] = useState('')
   const [purpose, setPurpose] = useState('')
@@ -65,22 +80,12 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
 
   const citySuggestions = useCitySearch(destination)
 
-  const fleetVehicles = useMemo(() => lookups.vehicles.filter((v) => v.vehicleType === 2), [lookups.vehicles])
-
   const plateDigits = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-  const vehicleSuggestions = useMemo(() => {
-    if (selectedVehicle || plateDigits.length < 2) return []
-    return fleetVehicles.filter((v) => v.licensePlate?.toUpperCase().includes(plateDigits)).slice(0, MAX_SUGGESTIONS)
-  }, [fleetVehicles, plateDigits, selectedVehicle])
-
-  // Motorista não inclui visitante (tipo 1) nem pessoa bloqueada — evita um
-  // 403 do backend por algo já detectável no cliente.
-  const driverOptions = useMemo(() => lookups.people.filter((p) => p.personType !== 1 && !p.isBlocked), [lookups.people])
-
-  const towFleetOptions = useMemo(
-    () => fleetVehicles.filter((v) => v.id !== selectedVehicle?.id),
-    [fleetVehicles, selectedVehicle],
-  )
+  const { items: vehicleSuggestions, isLoading: isSearchingVehicles } = useRemoteSuggestions(plateDigits, {
+    minLength: 2,
+    enabled: !selectedVehicle,
+    fetchItems: (term) => searchFleetVehicles(term),
+  })
 
   function resetKmWarning() {
     setKmError(null)
@@ -153,8 +158,8 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
     try {
       await api.post('/fleet-logs', {
         vehicleId: selectedVehicle.id,
-        driverId: driverId ? Number(driverId) : undefined,
-        transportingVehicleId: towMode === 'fleet' && towVehicleId ? Number(towVehicleId) : undefined,
+        driverId: driver?.id,
+        transportingVehicleId: towMode === 'fleet' && towVehicle ? towVehicle.id : undefined,
         transportedByPlate: towMode === 'third-party' && towPlate.trim() ? towPlate : undefined,
         destination: destination.trim() || undefined,
         purpose: purpose.trim() || undefined,
@@ -238,7 +243,7 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
                 )}
               />
             )}
-            {!selectedVehicle && plateDigits.length >= 2 && vehicleSuggestions.length === 0 && (
+            {!selectedVehicle && plateDigits.length >= 2 && !isSearchingVehicles && vehicleSuggestions.length === 0 && (
               <p className="text-xs text-muted">
                 Nenhum veículo de frota própria encontrado — cadastre em Cadastros &gt; Veículos.
               </p>
@@ -263,14 +268,21 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
 
           <div className="flex flex-col gap-1">
             <label className={labelClass}>Motorista</label>
-            <select value={driverId} onChange={(event) => setDriverId(event.target.value)} className={inputClass}>
-              <option value="">Sem motorista (carga)</option>
-              {driverOptions.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.name}
-                </option>
-              ))}
-            </select>
+            <RecordPicker
+              value={driver}
+              onChange={setDriver}
+              getLabel={(person) => person.name}
+              placeholder="Sem motorista (carga) — digite para buscar..."
+              emptyText="Nenhum motorista encontrado (visitantes e bloqueados não aparecem)."
+              inputClassName={inputClass}
+              fetchItems={async (term) => {
+                // Motorista não inclui visitante nem pessoa bloqueada — evita um
+                // 403 do backend por algo já detectável no cliente.
+                const { data } = await api.get('/people', { params: { search: term, blocked: false, limit: 20 } })
+                return data.data.filter((p) => p.personType !== PERSON_TYPE_VISITOR).slice(0, MAX_SUGGESTIONS)
+              }}
+              renderItem={(person) => <span className="text-[13px] font-semibold text-ink">{person.name}</span>}
+            />
           </div>
         </div>
 
@@ -316,7 +328,7 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
                   type="button"
                   onClick={() => {
                     setTowMode('third-party')
-                    setTowVehicleId('')
+                    setTowVehicle(null)
                   }}
                   className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold ${
                     towMode === 'third-party' ? 'bg-brand-50 text-brand' : 'border border-gray-200 bg-white text-gray-500'
@@ -329,7 +341,7 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
                     type="button"
                     onClick={() => {
                       setTowMode('none')
-                      setTowVehicleId('')
+                      setTowVehicle(null)
                       setTowPlate('')
                     }}
                     className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-500"
@@ -342,15 +354,21 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
               {towMode === 'fleet' && (
                 <div className="flex flex-col gap-1">
                   <label className={labelClass}>Veículo Guincho</label>
-                  <select value={towVehicleId} onChange={(event) => setTowVehicleId(event.target.value)} className={inputClass}>
-                    <option value="">Selecione...</option>
-                    {towFleetOptions.map((vehicle) => (
-                      <option key={vehicle.id} value={vehicle.id}>
-                        {formatPlateInput(vehicle.licensePlate)} —{' '}
-                        {[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo'}
-                      </option>
-                    ))}
-                  </select>
+                  <RecordPicker
+                    value={towVehicle}
+                    onChange={setTowVehicle}
+                    getLabel={(vehicle) => `${formatPlateInput(vehicle.licensePlate)} — ${vehicleLabel(vehicle)}`}
+                    placeholder="Digite a placa do guincho..."
+                    emptyText="Nenhum veículo de frota própria encontrado."
+                    inputClassName={inputClass}
+                    fetchItems={(term) => searchFleetVehicles(term, selectedVehicle?.id)}
+                    renderItem={(vehicle) => (
+                      <>
+                        <span className="text-[13px] font-semibold text-ink">{formatPlateInput(vehicle.licensePlate)}</span>
+                        <span className="text-[11px] text-muted">{vehicleLabel(vehicle)}</span>
+                      </>
+                    )}
+                  />
                 </div>
               )}
 
