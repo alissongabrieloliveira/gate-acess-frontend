@@ -1,11 +1,13 @@
-import { Lock, Pencil, Plus, Search, Trash2, Unlock } from 'lucide-react'
+import { FileDown, Lock, Pencil, Plus, Search, Trash2, Unlock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import Modal from '../../components/Modal'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf } from '../../lib/format'
+import { openExportWindow } from '../../lib/exportDocument'
 import { RULES } from '../../lib/rules'
+import { writeUserDataExport } from './exportUserData'
 import UserFormDrawer from './UserFormDrawer'
 import { PAGE_SIZE, useUsersData } from './useUsersData'
 
@@ -80,6 +82,7 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState(null)
   const [removingUser, setRemovingUser] = useState(null)
   const [actionError, setActionError] = useState(null)
+  const [exportingId, setExportingId] = useState(null)
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchText), 400)
@@ -99,6 +102,27 @@ export default function UsersPage() {
       refetch()
     } catch (err) {
       setActionError(getErrorMessage(err, 'Não foi possível atualizar o status do usuário.'))
+    }
+  }
+
+  // Exportação de dados do operador (LGPD). A janela abre no clique, antes
+  // do fetch, senão o navegador bloqueia o pop-up.
+  async function handleExport(targetUser) {
+    setActionError(null)
+    const printWindow = openExportWindow()
+    if (!printWindow) {
+      setActionError('O navegador bloqueou a janela de exportação. Permita pop-ups para este site.')
+      return
+    }
+    setExportingId(targetUser.id)
+    try {
+      const { data } = await api.get(`/users/${targetUser.id}/data-export`)
+      writeUserDataExport(printWindow, data)
+    } catch (err) {
+      printWindow.close()
+      setActionError(getErrorMessage(err, 'Não foi possível exportar os dados do usuário.'))
+    } finally {
+      setExportingId(null)
     }
   }
 
@@ -144,7 +168,7 @@ export default function UsersPage() {
             em vez de espremê-las — abaixo disso a tabela rola na horizontal
             (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
         <div className="overflow-x-auto">
-          <div className="min-w-[1010px]">
+          <div className="min-w-[1050px]">
             <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
               <p className="w-[200px]">Nome</p>
               <p className="w-[130px]">CPF</p>
@@ -152,7 +176,7 @@ export default function UsersPage() {
               <p className="w-[110px]">Perfil</p>
               <p className="w-[140px]">Cadastrado em</p>
               <p className="w-[90px]">Status</p>
-              <p className="w-[120px] text-center">Ações</p>
+              <p className="w-[160px] text-center">Ações</p>
             </div>
 
             {isLoading ? null : error ? null : users.length === 0 ? (
@@ -194,7 +218,7 @@ export default function UsersPage() {
                         </span>
                       )}
                     </div>
-                    <div className="flex w-[120px] items-center justify-center gap-2">
+                    <div className="flex w-[160px] items-center justify-center gap-2">
                       <button
                         type="button"
                         title="Editar"
@@ -224,6 +248,15 @@ export default function UsersPage() {
                         className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         <Trash2 className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                      <button
+                        type="button"
+                        title="Exportar dados (LGPD)"
+                        onClick={() => handleExport(row)}
+                        disabled={exportingId === row.id}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        <FileDown className="size-4 text-gray-600" strokeWidth={1.75} />
                       </button>
                     </div>
                   </div>

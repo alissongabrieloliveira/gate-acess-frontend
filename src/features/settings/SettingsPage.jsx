@@ -1,13 +1,15 @@
-import { Building2, Lock, Pencil, User } from 'lucide-react'
+import { Building2, FileDown, Lock, Pencil, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import SuggestionsDropdown from '../../components/SuggestionsDropdown'
 import { formatCityLabel, useCitySearch } from '../../hooks/useCitySearch'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { getErrorMessage } from '../../lib/errors'
+import { openExportWindow } from '../../lib/exportDocument'
 import { formatCnpj, formatCpf, formatPhone, isValidCnpj, isValidCpf } from '../../lib/format'
 import { RULES } from '../../lib/rules'
 import { formatPersonName, handleNameChange } from '../../lib/nameCase'
+import { writeUserDataExport } from '../users/exportUserData'
 import { useSettingsData } from './useSettingsData'
 
 const inputClass =
@@ -81,6 +83,30 @@ export default function SettingsPage() {
   // abertos pra edição direto, sem nenhum gesto explícito pra entrar em modo
   // de edição.
   const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportError, setExportError] = useState(null)
+
+  // "Exportar meus dados" (LGPD): o próprio usuário baixa tudo o que o
+  // sistema guarda sobre ele. A janela abre no clique, antes do fetch, senão
+  // o navegador bloqueia o pop-up.
+  async function handleExportMyData() {
+    setExportError(null)
+    const printWindow = openExportWindow()
+    if (!printWindow) {
+      setExportError('O navegador bloqueou a janela de exportação. Permita pop-ups para este site.')
+      return
+    }
+    setIsExporting(true)
+    try {
+      const { data } = await api.get(`/users/${profile.id}/data-export`)
+      writeUserDataExport(printWindow, data)
+    } catch (err) {
+      printWindow.close()
+      setExportError(getErrorMessage(err, 'Não foi possível exportar seus dados.'))
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   // "Dados da Empresa" — só admin edita (ver isAdmin abaixo); o form fica
   // populado mesmo pra operador, só não é renderizado nesse caso (evita
@@ -290,6 +316,15 @@ export default function SettingsPage() {
                   >
                     {isAdmin ? 'Administrador' : 'Operador'}
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleExportMyData}
+                    disabled={isExporting}
+                    title="Exportar meus dados (LGPD)"
+                    className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <FileDown className="size-4 text-gray-600" strokeWidth={1.75} />
+                  </button>
                   {!isEditingProfile && <EditButton onClick={() => setIsEditingProfile(true)} />}
                 </div>
               }
@@ -364,6 +399,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {exportError && <p className="text-sm text-red-600">{exportError}</p>}
             {submitError && <p className="text-sm text-red-600">{submitError}</p>}
             {submitSuccess && <p className="text-sm text-green-600">Alterações salvas com sucesso.</p>}
 
