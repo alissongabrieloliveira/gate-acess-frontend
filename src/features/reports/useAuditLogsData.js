@@ -24,6 +24,7 @@ export const ACTIONS = [
   { value: 'INSERT', label: 'Criação' },
   { value: 'UPDATE', label: 'Atualização' },
   { value: 'DELETE', label: 'Exclusão' },
+  { value: 'EXPORT', label: 'Exportação de dados' },
 ]
 
 export const ACTION_LABELS = Object.fromEntries(ACTIONS.map((a) => [a.value, a.label]))

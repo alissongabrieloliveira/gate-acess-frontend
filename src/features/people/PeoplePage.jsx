@@ -1,9 +1,12 @@
-import { Lock, Pencil, Plus, Search, Unlock } from 'lucide-react'
+import { FileDown, Lock, Pencil, Plus, Search, Unlock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import BlockReasonModal from '../../components/BlockReasonModal'
 import { api } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPhone } from '../../lib/format'
+import { RULES } from '../../lib/rules'
+import { openExportWindow, writePersonDataExport } from './exportPersonData'
 import PersonFormDrawer from './PersonFormDrawer'
 import { PAGE_SIZE, PERSON_TYPE_LABELS, usePeopleData } from './usePeopleData'
 
@@ -31,6 +34,9 @@ export default function PeoplePage() {
   const [editingPerson, setEditingPerson] = useState(null)
   const [blockingPerson, setBlockingPerson] = useState(null)
   const [actionError, setActionError] = useState(null)
+  const [exportingId, setExportingId] = useState(null)
+  const { user } = useAuth()
+  const isAdmin = !!(user?.rules & RULES.ADMIN)
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchText), 400)
@@ -53,6 +59,28 @@ export default function PeoplePage() {
       refetch()
     } catch (err) {
       setActionError(getErrorMessage(err, 'Não foi possível desbloquear a pessoa.'))
+    }
+  }
+
+  // Exportação de dados do titular (LGPD) — só admin (o backend também
+  // barra). A janela abre no clique, antes do fetch, senão o navegador
+  // bloqueia o pop-up (mesmo padrão dos relatórios em PDF).
+  async function handleExport(person) {
+    setActionError(null)
+    const printWindow = openExportWindow()
+    if (!printWindow) {
+      setActionError('O navegador bloqueou a janela de exportação. Permita pop-ups para este site.')
+      return
+    }
+    setExportingId(person.id)
+    try {
+      const { data } = await api.get(`/people/${person.id}/data-export`)
+      writePersonDataExport(printWindow, data)
+    } catch (err) {
+      printWindow.close()
+      setActionError(getErrorMessage(err, 'Não foi possível exportar os dados da pessoa.'))
+    } finally {
+      setExportingId(null)
     }
   }
 
@@ -98,7 +126,7 @@ export default function PeoplePage() {
             em vez de espremê-las — abaixo disso a tabela rola na horizontal
             (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
         <div className="overflow-x-auto">
-          <div className="min-w-[930px]">
+          <div className="min-w-[970px]">
             <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
               <p className="w-[220px]">Nome</p>
               <p className="w-[130px]">CPF</p>
@@ -106,7 +134,7 @@ export default function PeoplePage() {
               <p className="w-[140px]">Telefone</p>
               <p className="w-[140px]">Cadastrado em</p>
               <p className="w-[100px]">Status</p>
-              <p className="w-[90px] text-center">Ações</p>
+              <p className="w-[130px] text-center">Ações</p>
             </div>
 
             {isLoading ? null : people.length === 0 ? (
@@ -131,7 +159,7 @@ export default function PeoplePage() {
                       <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
                     )}
                   </div>
-                  <div className="flex w-[90px] items-center justify-center gap-2">
+                  <div className="flex w-[130px] items-center justify-center gap-2">
                     <button
                       type="button"
                       title="Editar"
@@ -157,6 +185,17 @@ export default function PeoplePage() {
                         className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
                       >
                         <Lock className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        title="Exportar dados (LGPD)"
+                        onClick={() => handleExport(person)}
+                        disabled={exportingId === person.id}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        <FileDown className="size-4 text-gray-600" strokeWidth={1.75} />
                       </button>
                     )}
                   </div>

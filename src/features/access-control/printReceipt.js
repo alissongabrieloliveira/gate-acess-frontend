@@ -1,5 +1,5 @@
 import { api } from '../../lib/api'
-import { formatPlateInput, maskCpf } from '../../lib/format'
+import { formatPhone, formatPlateInput, maskCpf } from '../../lib/format'
 
 function formatDateTime(value) {
   if (!value) return '----'
@@ -25,6 +25,30 @@ async function getCompany() {
     // abaixo) em vez de travar a impressão por causa disso.
     return null
   }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+// Aviso de privacidade (LGPD art. 9): quem trata os dados, para quê e onde
+// pedir acesso/correção/exclusão. Contato: o de privacidade cadastrado em
+// Configurações; sem ele, o e-mail/telefone de contato da empresa; sem
+// nenhum, a própria portaria. Texto puro — o chamador escapa pra HTML.
+export function privacyNotice(company) {
+  const companyName = company?.trade_name || company?.corporate_name
+  const by = companyName ? `por ${companyName}` : 'pela empresa'
+  const contact =
+    company?.privacy_contact || company?.contact_email || (company?.contact_phone ? formatPhone(company.contact_phone) : null)
+  const where = contact ? `pelo contato ${contact}` : 'na portaria'
+  return (
+    `Seus dados pessoais são tratados ${by} para controle de acesso e segurança, conforme a LGPD. ` +
+    `Para acessar, corrigir ou pedir a exclusão dos seus dados, fale conosco ${where}.`
+  )
 }
 
 // Célula de uma "linha" do formulário — `value` vazio ou ausente vira uma
@@ -117,6 +141,7 @@ export async function printReceipt(log, existingWindow) {
             text-align: center;
             line-height: 1.4;
           }
+          .footer.privacy { font-size: 9px; text-align: left; }
         </style>
       </head>
       <body>
@@ -165,6 +190,9 @@ export async function printReceipt(log, existingWindow) {
                 A empresa não se responsabiliza por acidentes ocorridos durante a visita.
                 Solicite o visto da pessoa responsável por sua liberação.
               </div>
+            </div>
+            <div class="row">
+              <div class="footer privacy">${escapeHtml(privacyNotice(company))}</div>
             </div>
           </div>
         </div>

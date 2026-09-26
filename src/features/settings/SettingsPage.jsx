@@ -96,6 +96,7 @@ export default function SettingsPage() {
   const [ufFallback, setUfFallback] = useState('')
   const [contactEmail, setContactEmail] = useState('')
   const [contactPhone, setContactPhone] = useState('')
+  const [privacyContact, setPrivacyContact] = useState('')
   const [cityQuery, setCityQuery] = useState('')
   const [selectedCityId, setSelectedCityId] = useState(null)
   const [cityFocused, setCityFocused] = useState(false)
@@ -123,6 +124,7 @@ export default function SettingsPage() {
     setUfFallback(c.state ?? '')
     setContactEmail(c.contact_email ?? '')
     setContactPhone(formatPhone(c.contact_phone))
+    setPrivacyContact(c.privacy_contact ?? '')
     setSelectedCityId(c.city_id ?? null)
     setCityQuery(
       c.city_id && c.city_name ? formatCityLabel({ name: c.city_name, stateAbbr: c.city_state_abbr }) : '',
@@ -199,6 +201,7 @@ export default function SettingsPage() {
         state: selectedCityId ? undefined : ufFallback || null,
         contactEmail: contactEmail || null,
         contactPhone: contactPhone.replace(/\D/g, '') || null,
+        privacyContact: privacyContact.trim() || null,
       })
       await refetch()
       setCompanySuccess(true)
@@ -402,6 +405,9 @@ export default function SettingsPage() {
               <Field label="E-mail de Contato" value={company.contact_email} />
               <Field label="Telefone de Contato" value={company.contact_phone} />
               <div className="col-span-2">
+                <Field label="Contato de Privacidade (LGPD)" value={company.privacy_contact} />
+              </div>
+              <div className="col-span-2">
                 <Field label="Endereço" value={formatAddress(company)} />
               </div>
             </div>
@@ -477,6 +483,20 @@ export default function SettingsPage() {
                 <input
                   value={zipCode}
                   onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                  disabled={!isEditingCompany}
+                  className={inputClass}
+                />
+              </div>
+              {/* Impresso no recibo de acesso: canal pra o visitante pedir
+                  acesso, correção ou exclusão dos dados (LGPD). Vazio = o
+                  recibo usa o e-mail/telefone de contato acima. */}
+              <div className="col-span-2 flex flex-col gap-1">
+                <label className={labelClass}>Contato de Privacidade (LGPD)</label>
+                <input
+                  value={privacyContact}
+                  onChange={(e) => setPrivacyContact(e.target.value)}
+                  maxLength={255}
+                  placeholder="Ex.: privacidade@empresa.com ou (62) 3333-0000 — aparece no recibo"
                   disabled={!isEditingCompany}
                   className={inputClass}
                 />
