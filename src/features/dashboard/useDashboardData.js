@@ -18,19 +18,28 @@ export function addDays(date, days) {
   return result
 }
 
+// Chave do dia no fuso do navegador — mesmo formato que o backend devolve em
+// /dashboard/summary (agrupado pelo fuso enviado em `timeZone`).
+export function toDateKey(date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+export function weekStartOf(date) {
+  return addDays(startOfDay(date), -6)
+}
+
 function byId(records) {
   return new Map(records.map((record) => [record.id, record]))
 }
 
+const RECENT_LOGS_LIMIT = 5
+
 /**
- * Não existe endpoint de agregação no backend (nenhum /dashboard, /stats etc.) —
- * tudo aqui é calculado no cliente a partir dos endpoints de listagem que já
- * existem. Onde a lista tem mais de 100 registros (limite máximo por página da
- * API), a amostra buscada (só a primeira página) fica incompleta e os números
- * derivados dela (pessoas/veículos bloqueados, novos cadastros na semana,
- * atividade semanal, acessos por posto) sub-contam — aceitável para o volume
- * de dados atual do projeto (ver memoria.md), documentado aqui e sinalizado
- * via `isPartial` pros cartões que dependem disso.
+ * Contagens vêm do banco (totais das listagens com limit=1 e
+ * /dashboard/summary) — nada é contado sobre amostra. Setores/postos ainda
+ * vêm de uma lista de até 100 (volume baixo).
  */
 export function useDashboardData() {
   const [state, setState] = useState({ isLoading: true, error: null, data: null })
@@ -43,50 +52,34 @@ export function useDashboardData() {
       const todayStart = startOfDay(now)
       const tomorrowStart = addDays(todayStart, 1)
       const yesterdayStart = addDays(todayStart, -1)
-      const weekStart = addDays(todayStart, -6)
+      const weekStart = weekStartOf(now)
 
       try {
-        const [weekRes, todayRes, yesterdayRes, peopleRes, vehiclesRes, gatesRes, onTripRes] =
-          await Promise.all([
-            api.get('/access-logs', {
-              params: { from: weekStart.toISOString(), to: now.toISOString(), limit: 100 },
-            }),
-            api.get('/access-logs', {
-              params: { from: todayStart.toISOString(), to: tomorrowStart.toISOString(), limit: 1 },
-            }),
-            api.get('/access-logs', {
-              params: { from: yesterdayStart.toISOString(), to: todayStart.toISOString(), limit: 1 },
-            }),
-            api.get('/people', { params: { limit: 100 } }),
-            api.get('/vehicles', { params: { limit: 100 } }),
-            api.get('/gates', { params: { limit: 100 } }),
-            api.get('/fleet-logs/on-trip'),
-          ])
+        const [summaryRes, todayRes, yesterdayRes, peopleRes, gatesRes, onTripRes] = await Promise.all([
+          api.get('/dashboard/summary', {
+            params: {
+              from: weekStart.toISOString(),
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            },
+          }),
+          api.get('/access-logs', {
+            params: { from: todayStart.toISOString(), to: tomorrowStart.toISOString(), limit: 1 },
+          }),
+          api.get('/access-logs', {
+            params: { from: yesterdayStart.toISOString(), to: todayStart.toISOString(), limit: 1 },
+          }),
+          api.get('/people', { params: { limit: 1 } }),
+          api.get('/gates', { params: { limit: 100 } }),
+          api.get('/fleet-logs/on-trip'),
+        ])
         if (cancelled) return
 
-        const people = peopleRes.data.data
-        const vehicles = vehiclesRes.data.data
-        const peopleTotal = peopleRes.data.pagination.total
-        const vehiclesTotal = vehiclesRes.data.pagination.total
-        const peopleSamplePartial = peopleTotal > people.length
-        const vehiclesSamplePartial = vehiclesTotal > vehicles.length
-
+        const summary = summaryRes.data
         const todayCount = todayRes.data.pagination.total
         const yesterdayCount = yesterdayRes.data.pagination.total
         const todayTrendPct =
           yesterdayCount === 0 ? null : Math.round(((todayCount - yesterdayCount) / yesterdayCount) * 100)
-
-        const newPeopleThisWeek = peopleSamplePartial
-          ? null
-          : people.filter((person) => new Date(person.createdAt) >= weekStart).length
-
-        const blockedPeopleCount = people.filter((person) => person.isBlocked).length
-        const blockedVehiclesCount = vehicles.filter((vehicle) => vehicle.isBlocked).length
-
         const gatesList = gatesRes.data.data
-        // weekLogs já vem ordenado por entry_time desc (access-logs.repository.js)
-        // — os 5 primeiros são, por construção, os acessos mais recentes.
-        const weekLogs = weekRes.data.data
 
         setState({
           isLoading: false,
@@ -95,13 +88,10 @@ export function useDashboardData() {
             todayCount,
             todayTrendPct,
             vehiclesOnTripCount: onTripRes.data.data.length,
-            peopleTotal,
-            newPeopleThisWeek,
-            alertsCount: blockedPeopleCount + blockedVehiclesCount,
-            alertsIsPartial: peopleSamplePartial || vehiclesSamplePartial,
-            recentLogs: weekLogs.slice(0, 5),
-            weekLogs,
-            weekLogsIsPartial: weekRes.data.pagination.total > weekLogs.length,
+            peopleTotal: peopleRes.data.pagination.total,
+            newPeopleThisWeek: summary.newPeople,
+            alertsCount: summary.blockedPeople + summary.blockedVehicles,
+            accessesByDay: summary.accessesByDay,
             gatesById: byId(gatesList),
             gatesList,
           },
@@ -118,4 +108,33 @@ export function useDashboardData() {
   }, [])
 
   return state
+}
+
+/**
+ * Últimos acessos dos 7 dias, filtrados no servidor pelo posto escolhido
+ * (antes filtrava uma amostra de 100 no cliente e podia sumir com acessos
+ * de postos menos movimentados). Mantém a lista anterior enquanto carrega.
+ */
+export function useRecentAccessLogs(selectedGateId) {
+  const [logs, setLogs] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    const params = { from: weekStartOf(new Date()).toISOString(), limit: RECENT_LOGS_LIMIT }
+    if (selectedGateId !== 'all') params.entryGateId = selectedGateId
+
+    api
+      .get('/access-logs', { params })
+      .then((res) => {
+        if (!cancelled) setLogs(res.data.data)
+      })
+      .catch(() => {
+        // Falha aqui não derruba o Dashboard inteiro; a lista fica como estava.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedGateId])
+
+  return logs
 }

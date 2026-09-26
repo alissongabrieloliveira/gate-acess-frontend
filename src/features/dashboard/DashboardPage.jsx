@@ -5,7 +5,9 @@ import {
   addDays,
   PERSON_TYPE_LABELS,
   startOfDay,
+  toDateKey,
   useDashboardData,
+  useRecentAccessLogs,
   WEEKDAY_LABELS,
 } from './useDashboardData'
 
@@ -19,43 +21,36 @@ const MAX_BAR_HEIGHT = 140
 export default function DashboardPage() {
   const { isLoading, error, data } = useDashboardData()
   const [selectedGateId, setSelectedGateId] = useState('all')
+  const recentAccessLogs = useRecentAccessLogs(selectedGateId)
 
-  const filteredWeekLogs = useMemo(() => {
-    if (!data) return []
-    if (selectedGateId === 'all') return data.weekLogs
-    return data.weekLogs.filter((log) => String(log.entryGateId) === selectedGateId)
-  }, [data, selectedGateId])
-
-  const recentLogs = useMemo(() => {
-    if (!data) return []
-    const source = selectedGateId === 'all' ? data.recentLogs : filteredWeekLogs.slice(0, 5)
-    return source.map(enrichLog)
-  }, [data, filteredWeekLogs, selectedGateId])
+  const recentLogs = useMemo(() => recentAccessLogs.map(enrichLog), [recentAccessLogs])
 
   const weeklyBuckets = useMemo(() => {
     if (!data) return []
+    const countByDate = new Map()
+    for (const row of data.accessesByDay) {
+      if (selectedGateId !== 'all' && String(row.gateId) !== selectedGateId) continue
+      countByDate.set(row.date, (countByDate.get(row.date) || 0) + row.count)
+    }
     const today = startOfDay(new Date())
     const weekStart = addDays(today, -6)
     const counts = Array.from({ length: 7 }, (_, i) => {
       const day = addDays(weekStart, i)
-      const nextDay = addDays(day, 1)
-      const count = filteredWeekLogs.filter((log) => {
-        const entry = new Date(log.entryTime)
-        return entry >= day && entry < nextDay
-      }).length
+      const count = countByDate.get(toDateKey(day)) || 0
       return { label: WEEKDAY_LABELS[day.getDay()], count, isToday: day.getTime() === today.getTime() }
     })
     const max = Math.max(...counts.map((bucket) => bucket.count), 1)
     return counts.map((bucket) => ({ ...bucket, heightPx: Math.max(Math.round((bucket.count / max) * MAX_BAR_HEIGHT), 4) }))
-  }, [data, filteredWeekLogs])
+  }, [data, selectedGateId])
 
   const postsBreakdown = useMemo(() => {
     if (!data) return []
     const countByGate = new Map()
-    for (const log of data.weekLogs) {
-      countByGate.set(log.entryGateId, (countByGate.get(log.entryGateId) || 0) + 1)
+    let total = 0
+    for (const row of data.accessesByDay) {
+      countByGate.set(row.gateId, (countByGate.get(row.gateId) || 0) + row.count)
+      total += row.count
     }
-    const total = data.weekLogs.length
     return [...countByGate.entries()]
       .map(([gateId, count]) => ({
         name: data.gatesById.get(gateId)?.name ?? 'Posto removido',
@@ -111,11 +106,8 @@ export default function DashboardPage() {
           label="Pessoas Cadastradas"
           value={data.peopleTotal}
           icon={<Users className="size-[18px] text-brand" strokeWidth={2} />}
-          badge={
-            data.newPeopleThisWeek === null
-              ? null
-              : { text: `+${data.newPeopleThisWeek}`, className: 'bg-green-100 text-green-700' }
-          }
+          badge={{ text: `+${data.newPeopleThisWeek}`, className: 'bg-green-100 text-green-700' }}
+          title="Novos cadastros nos últimos 7 dias"
         />
         <KpiCard
           label="Alertas"
@@ -126,11 +118,7 @@ export default function DashboardPage() {
               ? { text: 'Crítico', className: 'bg-red-100 text-red-700' }
               : { text: 'Normal', className: 'bg-green-100 text-green-700' }
           }
-          title={
-            data.alertsIsPartial
-              ? 'Calculado a partir de uma amostra parcial — mais de 100 pessoas ou veículos cadastrados'
-              : 'Pessoas e veículos bloqueados'
-          }
+          title="Pessoas e veículos bloqueados"
         />
       </div>
 
