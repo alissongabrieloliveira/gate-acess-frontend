@@ -25,6 +25,7 @@ export const ACTIONS = [
   { value: 'UPDATE', label: 'Atualização' },
   { value: 'DELETE', label: 'Exclusão' },
   { value: 'EXPORT', label: 'Exportação de dados' },
+  { value: 'ANONYMIZE', label: 'Anonimização' },
 ]
 
 export const ACTION_LABELS = Object.fromEntries(ACTIONS.map((a) => [a.value, a.label]))

@@ -78,6 +78,7 @@ export const HISTORY_ACTION_LABELS = {
   UPDATE: 'Cadastro alterado',
   DELETE: 'Cadastro excluído',
   EXPORT: 'Dados exportados',
+  ANONYMIZE: 'Dados anonimizados',
 }
 
 export const HISTORY_COLUMNS = [

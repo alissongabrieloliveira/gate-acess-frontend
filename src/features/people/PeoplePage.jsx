@@ -1,4 +1,4 @@
-import { FileDown, Lock, Pencil, Plus, Search, Unlock } from 'lucide-react'
+import { FileDown, Lock, Pencil, Plus, Search, Unlock, UserX } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import BlockReasonModal from '../../components/BlockReasonModal'
 import { api } from '../../lib/api'
@@ -7,6 +7,7 @@ import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPhone } from '../../lib/format'
 import { RULES } from '../../lib/rules'
 import { openExportWindow, writePersonDataExport } from './exportPersonData'
+import AnonymizePersonModal from './AnonymizePersonModal'
 import PersonFormDrawer from './PersonFormDrawer'
 import { PAGE_SIZE, PERSON_TYPE_LABELS, usePeopleData } from './usePeopleData'
 
@@ -35,6 +36,7 @@ export default function PeoplePage() {
   const [blockingPerson, setBlockingPerson] = useState(null)
   const [actionError, setActionError] = useState(null)
   const [exportingId, setExportingId] = useState(null)
+  const [anonymizingPerson, setAnonymizingPerson] = useState(null)
   const { user } = useAuth()
   const isAdmin = !!(user?.rules & RULES.ADMIN)
 
@@ -126,7 +128,7 @@ export default function PeoplePage() {
             em vez de espremê-las — abaixo disso a tabela rola na horizontal
             (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
         <div className="overflow-x-auto">
-          <div className="min-w-[970px]">
+          <div className="min-w-[1010px]">
             <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
               <p className="w-[220px]">Nome</p>
               <p className="w-[130px]">CPF</p>
@@ -134,7 +136,7 @@ export default function PeoplePage() {
               <p className="w-[140px]">Telefone</p>
               <p className="w-[140px]">Cadastrado em</p>
               <p className="w-[100px]">Status</p>
-              <p className="w-[130px] text-center">Ações</p>
+              <p className="w-[170px] text-center">Ações</p>
             </div>
 
             {isLoading ? null : people.length === 0 ? (
@@ -159,7 +161,7 @@ export default function PeoplePage() {
                       <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">Ativo</span>
                     )}
                   </div>
-                  <div className="flex w-[130px] items-center justify-center gap-2">
+                  <div className="flex w-[170px] items-center justify-center gap-2">
                     <button
                       type="button"
                       title="Editar"
@@ -196,6 +198,21 @@ export default function PeoplePage() {
                         className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
                       >
                         <FileDown className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        title={
+                          person.isBlocked
+                            ? 'Pessoa bloqueada não pode ser anonimizada (desbloqueie antes, se for o caso)'
+                            : 'Anonimizar (LGPD)'
+                        }
+                        onClick={() => setAnonymizingPerson(person)}
+                        disabled={person.isBlocked}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <UserX className="size-4 text-gray-600" strokeWidth={1.75} />
                       </button>
                     )}
                   </div>
@@ -246,6 +263,17 @@ export default function PeoplePage() {
           onClose={() => setEditingPerson(null)}
           onSaved={() => {
             setEditingPerson(null)
+            refetch()
+          }}
+        />
+      )}
+
+      {anonymizingPerson && (
+        <AnonymizePersonModal
+          person={anonymizingPerson}
+          onClose={() => setAnonymizingPerson(null)}
+          onAnonymized={() => {
+            setAnonymizingPerson(null)
             refetch()
           }}
         />
