@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { formatCpf, formatPhone, formatPlateInput, formatRg, isValidCpf } from './format'
+import { formatCpf, formatPhone, formatPlateInput, formatRg, isValidCpf, maskCpf } from './format'
 
 describe('formatPlateInput', () => {
   test.each([
@@ -98,5 +98,16 @@ describe('formatRg', () => {
   test('null/undefined não quebram', () => {
     expect(formatRg(null)).toBe('')
     expect(formatRg(undefined)).toBe('')
+  })
+})
+
+describe('maskCpf', () => {
+  test.each([
+    ['52998224725', '***.982.247-**'],
+    ['529.982.247-25', '***.982.247-**'],
+    ['123', '***.***.***-**'],
+    [null, '***.***.***-**'],
+  ])('%s -> %s', (input, expected) => {
+    expect(maskCpf(input)).toBe(expected)
   })
 })

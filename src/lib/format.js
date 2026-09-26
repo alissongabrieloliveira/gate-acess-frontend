@@ -36,6 +36,17 @@ export function formatCpf(value) {
 }
 
 /**
+ * CPF mascarado para documentos impressos (LGPD): mostra só os 6 dígitos do
+ * meio, no mesmo formato usado pelo gov.br — "***.982.247-**". Suficiente pra
+ * conferência visual sem expor o número inteiro num papel que circula.
+ */
+export function maskCpf(value) {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  if (digits.length !== 11) return '***.***.***-**'
+  return `***.${digits.slice(3, 6)}.${digits.slice(6, 9)}-**`
+}
+
+/**
  * Valida CPF pelo algoritmo padrão de dígito verificador (mod 11) — mesmo
  * cálculo replicado em backend/src/utils/cpf.js (repositórios separados,
  * sem import compartilhado, mesmo critério já usado em lib/rules.js).

@@ -1,5 +1,5 @@
 import { api } from '../../lib/api'
-import { formatCpf, formatPlateInput } from '../../lib/format'
+import { formatPlateInput, maskCpf } from '../../lib/format'
 
 function formatDateTime(value) {
   if (!value) return '----'
@@ -133,7 +133,7 @@ export async function printReceipt(log, existingWindow) {
             </div>
             <div class="row">
               ${cell('Visitante', log.personName)}
-              ${cell('CPF', log.personCpf ? formatCpf(log.personCpf) : null)}
+              ${cell('CPF', log.personCpf ? maskCpf(log.personCpf) : null)}
             </div>
             <div class="row">
               ${cell('Firma')}
