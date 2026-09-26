@@ -1,8 +1,13 @@
 import { Shield, ShieldCheck } from 'lucide-react'
 
-export default function AuthLayout({ children }) {
+// `fitScreen`: a página ocupa exatamente a janela e nunca rola; o conteúdo
+// recebe só a altura que sobra e rola por dentro (ex.: aviso de privacidade,
+// texto longo com botões que precisam ficar sempre à vista).
+export default function AuthLayout({ children, fitScreen = false }) {
   return (
-    <div className="relative flex min-h-screen flex-col items-start justify-between overflow-hidden bg-page px-6 py-6 font-sans md:px-12">
+    <div
+      className={`relative flex ${fitScreen ? 'h-dvh' : 'min-h-screen'} flex-col items-start justify-between overflow-hidden bg-page px-6 py-6 font-sans md:px-12`}
+    >
       <BackgroundIllustration />
 
       <header className="flex w-full items-center justify-between">
@@ -19,7 +24,9 @@ export default function AuthLayout({ children }) {
         </div>
       </header>
 
-      <div className="flex w-full flex-1 items-center justify-center py-10">{children}</div>
+      <div className={`flex w-full flex-1 items-center justify-center ${fitScreen ? 'min-h-0 py-6' : 'py-10'}`}>
+        {children}
+      </div>
 
       <footer className="flex w-full items-center justify-between">
         <span className="rounded-md bg-brand-50 px-2 py-1 text-[11px] font-bold text-brand">

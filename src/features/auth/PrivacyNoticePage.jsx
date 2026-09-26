@@ -68,8 +68,8 @@ export default function PrivacyNoticePage() {
     company?.privacy_contact || company?.contact_email || (company?.contact_phone ? formatPhone(company.contact_phone) : null)
 
   return (
-    <AuthLayout>
-      <div className="relative flex max-h-[92vh] w-full max-w-[640px] flex-col rounded-2xl bg-white shadow-[0px_16px_16px_rgba(28,46,36,0.05)]">
+    <AuthLayout fitScreen>
+      <div className="relative flex max-h-full w-full max-w-[640px] flex-col rounded-2xl bg-white shadow-[0px_16px_16px_rgba(28,46,36,0.05)]">
         <div className="flex flex-col gap-2 border-b border-line px-8 pb-5 pt-8">
           <div className="flex size-11 items-center justify-center rounded-lg bg-brand-50">
             <ShieldCheck className="size-5 text-brand" strokeWidth={2} />
@@ -82,7 +82,7 @@ export default function PrivacyNoticePage() {
           </p>
         </div>
 
-        <div className="flex flex-col gap-5 overflow-y-auto px-8 py-6 text-sm leading-relaxed text-gray-700">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-8 py-6 text-sm leading-relaxed text-gray-700">
           <Section title="Os seus dados como usuário">
             <p>
               {companyName} guarda o seu nome, CPF e e-mail para dar acesso ao sistema, e registra seus logins (data,
