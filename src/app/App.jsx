@@ -5,6 +5,7 @@ import AccessControlPage from '../features/access-control/AccessControlPage'
 import AccessLogDetailPage from '../features/access-control/AccessLogDetailPage'
 import AccessLogEditPage from '../features/access-control/AccessLogEditPage'
 import ChangePasswordPage from '../features/auth/ChangePasswordPage'
+import PrivacyNoticePage from '../features/auth/PrivacyNoticePage'
 import ForgotPasswordPage from '../features/auth/ForgotPasswordPage'
 import LoginPage from '../features/auth/LoginPage'
 import ResetPasswordPage from '../features/auth/ResetPasswordPage'
@@ -44,6 +45,7 @@ export default function App() {
                   login (AuthLayout), já que o usuário ainda não tem acesso liberado
                   ao resto do app enquanto mustChangePassword for true. */}
               <Route path="/change-password" element={<ChangePasswordPage />} />
+              <Route path="/privacy-notice" element={<PrivacyNoticePage />} />
               <Route element={<Layout />}>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/access-control" element={<AccessControlPage />} />

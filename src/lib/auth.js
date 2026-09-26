@@ -7,8 +7,14 @@ function decodeAccessToken(token) {
   // Decodifica só o payload (base64url) — a assinatura já foi validada pelo backend.
   const payload = token.split('.')[1]
   const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
-  const { sub, company_id, rules, must_change_password } = JSON.parse(json)
-  return { userId: sub, companyId: company_id, rules, mustChangePassword: Boolean(must_change_password) }
+  const { sub, company_id, rules, must_change_password, privacy_notice_pending } = JSON.parse(json)
+  return {
+    userId: sub,
+    companyId: company_id,
+    rules,
+    mustChangePassword: Boolean(must_change_password),
+    privacyNoticePending: Boolean(privacy_notice_pending),
+  }
 }
 
 export function AuthProvider({ children }) {

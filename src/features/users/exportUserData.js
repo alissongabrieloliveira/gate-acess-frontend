@@ -47,6 +47,12 @@ export function buildUserDataHtml(data) {
     ['E-mail', user.email],
     ['Perfil', user.rules & RULES.ADMIN ? 'Administrador' : 'Operador'],
     ['Situação', user.isActive ? 'Ativo' : 'Inativo'],
+    [
+      'Aviso de privacidade',
+      user.privacyNoticeAcceptedAt
+        ? `Ciente em ${formatDateTime(user.privacyNoticeAcceptedAt)} (versão ${user.privacyNoticeVersion})`
+        : 'Ainda não deu ciência',
+    ],
     ['Cadastrado em', formatDateTime(user.createdAt)],
     ['Última alteração', formatDateTime(user.updatedAt)],
   ])

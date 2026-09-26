@@ -1,5 +1,6 @@
 import { Building2, FileDown, Lock, Pencil, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import SuggestionsDropdown from '../../components/SuggestionsDropdown'
 import { formatCityLabel, useCitySearch } from '../../hooks/useCitySearch'
 import { api } from '../../lib/api'
@@ -400,6 +401,9 @@ export default function SettingsPage() {
             </div>
 
             {exportError && <p className="text-sm text-red-600">{exportError}</p>}
+            <Link to="/privacy-notice" className="self-start text-[13px] font-semibold text-brand hover:underline">
+              Ver aviso de privacidade e termo de responsabilidade
+            </Link>
             {submitError && <p className="text-sm text-red-600">{submitError}</p>}
             {submitSuccess && <p className="text-sm text-green-600">Alterações salvas com sucesso.</p>}
 

@@ -69,6 +69,8 @@ export const FIELD_LABELS = {
   rules: 'Permissões',
   is_active: 'Situação (ativo/inativo)',
   must_change_password: 'Troca de senha obrigatória',
+  privacy_notice_version: 'Aviso de privacidade (versão aceita)',
+  privacy_notice_accepted_at: 'Aviso de privacidade (data da ciência)',
   email_verified_at: 'Verificação de e-mail',
   deleted_at: 'Exclusão do cadastro',
 }

@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 
 const CHANGE_PASSWORD_PATH = '/change-password'
+const PRIVACY_NOTICE_PATH = '/privacy-notice'
 
 export default function ProtectedRoute() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -24,6 +25,12 @@ export default function ProtectedRoute() {
   }
   if (!user.mustChangePassword && location.pathname === CHANGE_PASSWORD_PATH) {
     return <Navigate to="/" replace />
+  }
+
+  // Aviso de privacidade e termo de responsabilidade (LGPD): depois da senha,
+  // antes de qualquer tela. Continua acessível depois de aceito (Meu Perfil).
+  if (!user.mustChangePassword && user.privacyNoticePending && location.pathname !== PRIVACY_NOTICE_PATH) {
+    return <Navigate to={PRIVACY_NOTICE_PATH} replace />
   }
 
   return <Outlet />
