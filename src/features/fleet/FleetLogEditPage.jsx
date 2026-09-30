@@ -2,6 +2,8 @@ import { ArrowLeft, Car, Clock, MapPin, Truck, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
+import RecordPicker from '../../components/RecordPicker'
+import { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
@@ -11,6 +13,7 @@ import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
 import { parseKm } from '../../lib/km'
 import { RULES } from '../../lib/rules'
 import { formatPersonName, handleNameChange } from '../../lib/nameCase'
+import { statusBadge, statusLabel } from './fleetStatus'
 import { checkDepartureKm, checkReturnKm, displayKmDeparture, displayKmReturn } from './kmRules'
 import { PERSON_TYPES } from './useFleetData'
 import { useFleetLogDetail } from './useFleetLogDetail'
@@ -21,6 +24,8 @@ const labelClass = 'text-[11px] font-semibold uppercase text-subtle'
 const READONLY_TITLE = 'Somente administradores podem corrigir os dados do registro de frota'
 const TOW_PLATE_TITLE = 'Placa de guincho de terceiro não é editável — não é um veículo cadastrado'
 const NOT_RETURNED_TITLE = 'Este veículo ainda não retornou — registre o retorno pelo fluxo normal'
+// people.person_type: 1 = Visitante (não pode ser motorista da frota).
+const PERSON_TYPE_VISITOR = 1
 // Folga pra diferença de relógio entre o tablet e o servidor (mesma do backend).
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000
 
@@ -61,6 +66,8 @@ function ReadOnlyField({ label, title = READONLY_TITLE, children }) {
  * do registro de frota em si (destino, motivo, KM, datas) só por admin, via
  * PUT /fleet-logs/:id — para os demais ficam visíveis mas bloqueados. Placa
  * de guincho de terceiro (`transportedByPlate`) continua bloqueada pra todos.
+ * Registro que ficou sem motorista (antes de ele ser obrigatório): o admin
+ * informa aqui. O veículo levado em cima do guincho não tem motorista.
  */
 export default function FleetLogEditPage() {
   const { id } = useParams()
@@ -77,6 +84,7 @@ export default function FleetLogEditPage() {
   const [driverCpf, setDriverCpf] = useState('')
   const [driverType, setDriverType] = useState(3)
   const [towPlate, setTowPlate] = useState('')
+  const [missingDriver, setMissingDriver] = useState(null)
   const [towBrandModel, setTowBrandModel] = useState('')
   const [destination, setDestination] = useState('')
   const [purpose, setPurpose] = useState('')
@@ -224,6 +232,7 @@ export default function FleetLogEditPage() {
       }
       if (isAdmin) {
         const payload = buildLogPayload()
+        if (missingDriver) payload.driverId = missingDriver.id
         if (Object.keys(payload).length > 0) await api.put(`/fleet-logs/${id}`, payload)
       }
       navigate(`/fleet/${id}`)
@@ -235,10 +244,14 @@ export default function FleetLogEditPage() {
   }
 
   const hasTowSection = !!(detail && (detail.transportingVehicle || detail.log.transportedByPlate))
+  const carriedLogs = detail?.log.carriedLogs ?? []
+  const hasCarriedSection = carriedLogs.length > 0 || !!detail?.log.carriedVehiclePlate
+  const needsDriver = !!detail && !detail.driver && !detail.log.transportLogId
   let sectionNumber = 1
   const vehicleSectionNumber = sectionNumber++
-  const driverSectionNumber = detail?.driver ? sectionNumber++ : null
+  const driverSectionNumber = detail?.driver || needsDriver ? sectionNumber++ : null
   const towSectionNumber = hasTowSection ? sectionNumber++ : null
+  const carriedSectionNumber = hasCarriedSection ? sectionNumber++ : null
   const destinationSectionNumber = detail ? sectionNumber++ : null
   const registrySectionNumber = detail ? sectionNumber++ : null
 
@@ -340,11 +353,47 @@ export default function FleetLogEditPage() {
             </>
           )}
 
+          {needsDriver && (
+            <>
+              <hr className="border-gray-200" />
+              <div className="flex flex-col gap-2">
+                <SectionHeader number={driverSectionNumber} icon={<User className="size-4 text-ink" strokeWidth={1.75} />} title="Motorista" />
+                {isAdmin ? (
+                  <div className="flex flex-col gap-1">
+                    <label className={labelClass}>Motorista (registro ficou sem)</label>
+                    <RecordPicker
+                      value={missingDriver}
+                      onChange={setMissingDriver}
+                      getLabel={(person) => person.name}
+                      placeholder="Digite o nome ou CPF do motorista..."
+                      emptyText="Nenhum motorista encontrado (visitantes e bloqueados não aparecem)."
+                      inputClassName={inputClass}
+                      fetchItems={async (term) => {
+                        const { data } = await api.get('/people', { params: { search: term, blocked: false, limit: 20 } })
+                        return data.data.filter((p) => p.personType !== PERSON_TYPE_VISITOR).slice(0, MAX_SUGGESTIONS)
+                      }}
+                      renderItem={(person) => <span className="text-[13px] font-semibold text-ink">{person.name}</span>}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex gap-4">
+                    <ReadOnlyField label="Motorista">Não informado</ReadOnlyField>
+                    <div className="flex-1" />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           {hasTowSection && (
             <>
               <hr className="border-gray-200" />
               <div className="flex flex-col gap-2">
-                <SectionHeader number={towSectionNumber} icon={<Truck className="size-4 text-ink" strokeWidth={1.75} />} title="Guincho" />
+                <SectionHeader
+                  number={towSectionNumber}
+                  icon={<Truck className="size-4 text-ink" strokeWidth={1.75} />}
+                  title={detail.log.transportLogId ? 'Transportado por (Guincho)' : 'Guincho'}
+                />
                 {detail.transportingVehicle ? (
                   <div className="flex gap-4">
                     <div className="flex flex-1 flex-col gap-1">
@@ -360,6 +409,42 @@ export default function FleetLogEditPage() {
                   <div className="flex gap-4">
                     <ReadOnlyField label="Placa (veículo de terceiro)" title={TOW_PLATE_TITLE}>
                       {formatPlateInput(detail.log.transportedByPlate)}
+                    </ReadOnlyField>
+                    <div className="flex-1" />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {hasCarriedSection && (
+            <>
+              <hr className="border-gray-200" />
+              <div className="flex flex-col gap-2">
+                <SectionHeader
+                  number={carriedSectionNumber}
+                  icon={<Truck className="size-4 text-ink" strokeWidth={1.75} />}
+                  title="Veículo Transportado"
+                />
+                {carriedLogs.map((carried) => (
+                  <div key={carried.id} className="flex gap-4">
+                    <ReadOnlyField label="Placa" title="Edite pelo registro do próprio veículo transportado">
+                      {formatPlateInput(carried.vehicle?.licensePlate)}
+                    </ReadOnlyField>
+                    <div className="flex flex-1 items-end gap-2 pb-2">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusBadge(carried.status).className}`}>
+                        {statusLabel(carried)}
+                      </span>
+                      <Link to={`/fleet/${carried.id}/edit`} className="text-[13px] font-semibold text-brand hover:underline">
+                        Editar registro dele
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+                {detail.log.carriedVehiclePlate && (
+                  <div className="flex gap-4">
+                    <ReadOnlyField label="Placa (veículo de terceiro)" title="Placa de veículo de terceiro não é editável">
+                      {formatPlateInput(detail.log.carriedVehiclePlate)}
                     </ReadOnlyField>
                     <div className="flex-1" />
                   </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { transportSummary } from './fleetStatus'
 
 export const PAGE_SIZE = 8
 
@@ -92,13 +93,13 @@ export function useFleetData({ status, page, search }) {
 
 // Os dados relacionados já vêm no próprio log (backend, GET /fleet-logs).
 export function enrichFleetLog(log) {
-  const { vehicle, driver, transportingVehicle, departureGate, returnGate } = log
+  const { vehicle, driver, departureGate, returnGate } = log
   return {
     ...log,
     vehiclePlate: vehicle?.licensePlate ?? null,
     vehicleLabel: vehicle ? [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || null : null,
     driverName: driver?.name ?? null,
-    towPlate: transportingVehicle?.licensePlate ?? log.transportedByPlate ?? null,
+    transport: transportSummary(log),
     departureGateName: departureGate?.name ?? '—',
     returnGateName: returnGate?.name ?? null,
   }

@@ -4,15 +4,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { formatPlateInput } from '../../lib/format'
+import { noReturnReasonLabel, statusBadge, statusLabel, transportSummary } from './fleetStatus'
 import { displayKmDeparture, displayKmReturn } from './kmRules'
 import ReturnDrawer from './ReturnDrawer'
 import { PERSON_TYPE_LABELS } from './useFleetData'
 import { useFleetLogDetail } from './useFleetLogDetail'
-
-const STATUS_BADGES = {
-  ON_TRIP: { label: 'Na Rua', className: 'bg-green-100 text-green-700' },
-  RETURNED: { label: 'Retornado', className: 'bg-gray-100 text-gray-600' },
-}
 
 function formatDateTime(value) {
   return value ? new Date(value).toLocaleString('pt-BR') : '----'
@@ -43,10 +39,12 @@ function Field({ label, value }) {
  * Mesmo formato de `AccessLogDetailPage.jsx` (página própria, não modal —
  * breadcrumb + "Voltar"), adaptado pra `fleet_logs`: sem "Imprimir" (não
  * existe conceito de recibo/ticket pra saída de frota, diferente de
- * access_logs) e com seções extras (Motorista/Guincho) que só existem aqui.
+ * access_logs) e com seções extras (Motorista/Transporte) que só existem aqui.
  * Numeração das seções calculada dinamicamente — Veículo é sempre a 1ª,
- * Motorista/Guincho só aparecem quando o registro realmente tem essa
- * informação, então os números seguintes se ajustam.
+ * Motorista/Transporte só aparecem quando o registro realmente tem essa
+ * informação, então os números seguintes se ajustam. Transporte: no guincho,
+ * os veículos levados em cima; no veículo levado, o guincho (com link pro
+ * registro dele); registros antigos, o guincho de terceiro.
  */
 export default function FleetLogDetailPage() {
   const { id } = useParams()
@@ -60,11 +58,11 @@ export default function FleetLogDetailPage() {
     api.get('/gates', { params: { limit: 100 } }).then(({ data }) => setGatesList(data.data))
   }, [])
 
-  const hasTowSection = !!(detail && (detail.transportingVehicle || detail.log.transportedByPlate))
+  const transport = transportSummary(detail?.log)
   let sectionNumber = 1
   const vehicleSectionNumber = sectionNumber++
   const driverSectionNumber = detail?.driver ? sectionNumber++ : null
-  const towSectionNumber = hasTowSection ? sectionNumber++ : null
+  const transportSectionNumber = transport ? sectionNumber++ : null
   const destinationSectionNumber = sectionNumber++
   const registrySectionNumber = sectionNumber++
 
@@ -104,12 +102,8 @@ export default function FleetLogDetailPage() {
             <p className="text-lg font-bold text-ink">
               {detail.vehicle.licensePlate ? formatPlateInput(detail.vehicle.licensePlate) : '—'}
             </p>
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                (STATUS_BADGES[detail.log.status] ?? {}).className ?? 'bg-gray-100 text-gray-700'
-              }`}
-            >
-              {(STATUS_BADGES[detail.log.status] ?? {}).label ?? detail.log.status}
+            <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusBadge(detail.log.status).className}`}>
+              {statusLabel(detail.log)}
             </span>
           </div>
           <p className="-mt-3 text-[13px] text-subtle">
@@ -148,29 +142,71 @@ export default function FleetLogDetailPage() {
             </>
           )}
 
-          {hasTowSection && (
+          {transport && (
             <>
               <hr className="border-gray-200" />
               <div className="flex flex-col gap-2">
-                <SectionHeader number={towSectionNumber} icon={<Truck className="size-4 text-ink" strokeWidth={1.75} />} title="Guincho" />
-                <div className="flex gap-4">
-                  <Field
-                    label="Placa"
-                    value={
-                      detail.transportingVehicle
-                        ? formatPlateInput(detail.transportingVehicle.licensePlate)
-                        : formatPlateInput(detail.log.transportedByPlate)
-                    }
-                  />
-                  <Field
-                    label="Marca / Modelo"
-                    value={
-                      detail.transportingVehicle
-                        ? [detail.transportingVehicle.brand, detail.transportingVehicle.model].filter(Boolean).join(' ') || '—'
-                        : 'Veículo de terceiro (não cadastrado)'
-                    }
-                  />
-                </div>
+                <SectionHeader
+                  number={transportSectionNumber}
+                  icon={<Truck className="size-4 text-ink" strokeWidth={1.75} />}
+                  title={
+                    transport.label === 'Levando'
+                      ? 'Veículo Transportado'
+                      : transport.label === 'Guincho'
+                        ? 'Guincho'
+                        : 'Transportado por (Guincho)'
+                  }
+                />
+                {(detail.log.carriedLogs ?? []).map((carried) => (
+                  <div key={carried.id} className="flex items-end gap-4">
+                    <Field label="Placa" value={formatPlateInput(carried.vehicle?.licensePlate)} />
+                    <Field
+                      label="Marca / Modelo"
+                      value={[carried.vehicle?.brand, carried.vehicle?.model].filter(Boolean).join(' ') || '—'}
+                    />
+                    <div className="flex flex-1 items-center gap-2">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusBadge(carried.status).className}`}>
+                        {statusLabel(carried)}
+                      </span>
+                      <Link to={`/fleet/${carried.id}`} className="text-[13px] font-semibold text-brand hover:underline">
+                        Ver registro
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+                {detail.log.carriedVehiclePlate && (
+                  <div className="flex gap-4">
+                    <Field label="Placa" value={formatPlateInput(detail.log.carriedVehiclePlate)} />
+                    <Field label="Marca / Modelo" value="Veículo de terceiro (não cadastrado)" />
+                    <div className="flex-1" />
+                  </div>
+                )}
+                {detail.transportingVehicle && (
+                  <div className="flex items-end gap-4">
+                    <Field label="Placa" value={formatPlateInput(detail.transportingVehicle?.licensePlate)} />
+                    <Field
+                      label="Marca / Modelo"
+                      value={[detail.transportingVehicle?.brand, detail.transportingVehicle?.model].filter(Boolean).join(' ') || '—'}
+                    />
+                    <div className="flex flex-1 items-center">
+                      {detail.log.transportLogId && (
+                        <Link
+                          to={`/fleet/${detail.log.transportLogId}`}
+                          className="text-[13px] font-semibold text-brand hover:underline"
+                        >
+                          Ver registro do guincho
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {transport.label === 'Guincho' && (
+                  <div className="flex gap-4">
+                    <Field label="Placa" value={transport.value} />
+                    <Field label="Marca / Modelo" value="Veículo de terceiro (não cadastrado)" />
+                    <div className="flex-1" />
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -193,7 +229,13 @@ export default function FleetLogDetailPage() {
               <Field label="Data de Saída" value={`${formatDateTime(detail.log.departureTime)} — ${detail.departureGate.name}`} />
               <Field
                 label="Data de Retorno"
-                value={detail.log.returnTime ? `${formatDateTime(detail.log.returnTime)} — ${detail.returnGate?.name}` : '----'}
+                value={
+                  detail.log.returnTime
+                    ? `${formatDateTime(detail.log.returnTime)} — ${detail.returnGate?.name}`
+                    : detail.log.noReturnReason
+                      ? `Não retorna — ${noReturnReasonLabel(detail.log.noReturnReason)}`
+                      : '----'
+                }
               />
             </div>
             <div className="flex gap-4">
@@ -209,11 +251,9 @@ export default function FleetLogDetailPage() {
               <div className="flex flex-1 flex-col gap-1.5">
                 <p className="text-[11px] font-semibold uppercase text-subtle">Status</p>
                 <span
-                  className={`w-fit rounded-full px-2.5 py-1 text-[13px] font-bold ${
-                    (STATUS_BADGES[detail.log.status] ?? {}).className ?? 'bg-gray-100 text-gray-700'
-                  }`}
+                  className={`w-fit rounded-full px-2.5 py-1 text-[13px] font-bold ${statusBadge(detail.log.status).className}`}
                 >
-                  {(STATUS_BADGES[detail.log.status] ?? {}).label ?? detail.log.status}
+                  {statusLabel(detail.log)}
                 </span>
               </div>
             </div>
@@ -245,9 +285,10 @@ export default function FleetLogDetailPage() {
           vehiclePlate={detail.vehicle.licensePlate}
           vehicleLabel={[detail.vehicle.brand, detail.vehicle.model].filter(Boolean).join(' ') || null}
           driverName={detail.driver?.name}
+          isCarried={!!detail.log.transportLogId}
           destination={detail.log.destination}
           purpose={detail.log.purpose}
-          towPlate={detail.transportingVehicle?.licensePlate ?? detail.log.transportedByPlate}
+          transport={transport}
           departureTime={detail.log.departureTime}
           kmDeparture={detail.log.kmDeparture}
           defaultGateId={selectedGateId !== 'all' ? selectedGateId : gatesList[0]?.id}

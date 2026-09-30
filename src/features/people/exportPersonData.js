@@ -15,7 +15,13 @@ import { PERSON_TYPE_LABELS } from './usePeopleData'
 // Exportação de dados do titular (LGPD art. 18/19) — ver lib/exportDocument.js.
 export { openExportWindow }
 
-const STATUS_LABELS = { ACTIVE: 'Em andamento', FINISHED: 'Finalizado', ON_TRIP: 'Em viagem', RETURNED: 'Retornado' }
+const STATUS_LABELS = {
+  ACTIVE: 'Em andamento',
+  FINISHED: 'Finalizado',
+  ON_TRIP: 'Em viagem',
+  RETURNED: 'Retornado',
+  NO_RETURN: 'Não retorna',
+}
 
 function plate(vehicle) {
   return vehicle?.licensePlate ? formatPlateInput(vehicle.licensePlate) : null

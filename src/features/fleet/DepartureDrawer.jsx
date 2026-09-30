@@ -9,6 +9,7 @@ import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
 import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
+import { NO_RETURN_REASONS } from './fleetStatus'
 import { checkDepartureKm, formatKm, parseKm } from './kmRules'
 
 const inputClass =
@@ -21,10 +22,11 @@ const PERSON_TYPE_VISITOR = 1
 const vehicleLabel = (vehicle) => [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo'
 
 // Veículos da frota própria cuja placa contém o termo (busca no servidor).
+// Vendidos/transferidos (operationStatus != ACTIVE) não saem mais.
 async function searchFleetVehicles(term, excludeId) {
   const plateTerm = term.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
   const { data } = await api.get('/vehicles', {
-    params: { search: plateTerm, vehicleType: VEHICLE_TYPE_FLEET, limit: 20 },
+    params: { search: plateTerm, vehicleType: VEHICLE_TYPE_FLEET, operationStatus: 'ACTIVE', limit: 20 },
   })
   return data.data.filter((v) => v.id !== excludeId).slice(0, MAX_SUGGESTIONS)
 }
@@ -37,22 +39,60 @@ function StepBadge({ number }) {
   )
 }
 
+// "Não vai voltar" (vendido/transferido): checkbox + motivo. `value` é o
+// motivo escolhido ou null.
+function NoReturnField({ value, onChange, subject }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+        <input
+          type="checkbox"
+          checked={value !== null}
+          onChange={(event) => onChange(event.target.checked ? NO_RETURN_REASONS[0].value : null)}
+          className="size-4 accent-brand"
+        />
+        {subject} não vai voltar (vendido/transferido)
+      </label>
+      {value !== null && (
+        <select
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none"
+        >
+          {NO_RETURN_REASONS.map((reason) => (
+            <option key={reason.value} value={reason.value}>
+              {reason.label}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+  )
+}
+
 /**
  * Regra de negócio diferente do Controle de Acessos: lá, pessoa/veículo
  * podem ser cadastrados na hora (find-or-create). Aqui não — o veículo (e o
- * guincho, quando é da própria frota) só pode ser um já cadastrado como
+ * transportado, quando é da própria frota) só pode ser um já cadastrado como
  * "Frota Própria" em Cadastros > Veículos. Por isso a busca de placa aqui é
  * só um seletor (busca no servidor, sem criar nada inline — o registro
  * selecionado já É a fonte da verdade, não precisa reconfirmar).
+ *
+ * O veículo principal é sempre o que sai RODANDO, com motorista obrigatório.
+ * Quando ele é um guincho/prancha, o que vai em cima entra em "Veículo
+ * Transportado" (da frota — ganha registro próprio e volta depois, rodando —
+ * ou de terceiro, só a placa).
  */
 export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCreated }) {
   const [plate, setPlate] = useState('')
   const [selectedVehicle, setSelectedVehicle] = useState(null)
   const [driver, setDriver] = useState(null)
-  const [towSectionOpen, setTowSectionOpen] = useState(false)
-  const [towMode, setTowMode] = useState('none') // 'none' | 'fleet' | 'third-party'
-  const [towVehicle, setTowVehicle] = useState(null)
-  const [towPlate, setTowPlate] = useState('')
+  const [noReturnReason, setNoReturnReason] = useState(null)
+  const [carriedSectionOpen, setCarriedSectionOpen] = useState(false)
+  const [carriedMode, setCarriedMode] = useState('none') // 'none' | 'fleet' | 'third-party'
+  const [carriedVehicle, setCarriedVehicle] = useState(null)
+  const [carriedPlate, setCarriedPlate] = useState('')
+  const [carriedNoReturnReason, setCarriedNoReturnReason] = useState(null)
   const [destination, setDestination] = useState('')
   const [purpose, setPurpose] = useState('')
   const [kmDeparture, setKmDeparture] = useState('')
@@ -135,13 +175,17 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
   }
 
   const vehicleBlocked = selectedVehicle?.isBlocked
-  const canSubmit = !!selectedVehicle && !vehicleBlocked
+  const canSubmit = !!selectedVehicle && !vehicleBlocked && !!driver
 
   async function handleSubmit(event) {
     event.preventDefault()
     setError(null)
-    if (!canSubmit) {
+    if (!selectedVehicle || vehicleBlocked) {
       setError('Selecione um veículo da frota própria para continuar.')
+      return
+    }
+    if (!driver) {
+      setError('Informe o motorista do veículo.')
       return
     }
     const kmCheck = checkDepartureKm({ raw: kmDeparture, unavailable: kmUnavailable, lastKm })
@@ -158,9 +202,12 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
     try {
       await api.post('/fleet-logs', {
         vehicleId: selectedVehicle.id,
-        driverId: driver?.id,
-        transportingVehicleId: towMode === 'fleet' && towVehicle ? towVehicle.id : undefined,
-        transportedByPlate: towMode === 'third-party' && towPlate.trim() ? towPlate : undefined,
+        driverId: driver.id,
+        noReturnReason: noReturnReason ?? undefined,
+        carriedVehicleId: carriedMode === 'fleet' && carriedVehicle ? carriedVehicle.id : undefined,
+        carriedVehiclePlate: carriedMode === 'third-party' && carriedPlate.trim() ? carriedPlate : undefined,
+        carriedNoReturnReason:
+          carriedMode === 'fleet' && carriedVehicle && carriedNoReturnReason ? carriedNoReturnReason : undefined,
         destination: destination.trim() || undefined,
         purpose: purpose.trim() || undefined,
         departureGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
@@ -267,12 +314,12 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className={labelClass}>Motorista</label>
+            <label className={labelClass}>Motorista *</label>
             <RecordPicker
               value={driver}
               onChange={setDriver}
               getLabel={(person) => person.name}
-              placeholder="Sem motorista (carga) — digite para buscar..."
+              placeholder="Digite o nome ou CPF do motorista..."
               emptyText="Nenhum motorista encontrado (visitantes e bloqueados não aparecem)."
               inputClassName={inputClass}
               fetchItems={async (term) => {
@@ -284,42 +331,44 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
               renderItem={(person) => <span className="text-[13px] font-semibold text-ink">{person.name}</span>}
             />
           </div>
+
+          <NoReturnField value={noReturnReason} onChange={setNoReturnReason} subject="Este veículo" />
         </div>
 
         <hr className="border-gray-200" />
 
-        {/* 2. Guincho (opcional) */}
+        {/* 2. Veículo transportado (opcional) */}
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            onClick={() => setTowSectionOpen((value) => !value)}
+            onClick={() => setCarriedSectionOpen((value) => !value)}
             className="flex w-full items-center justify-between py-1"
           >
             <span className="flex items-center gap-1.5">
               <StepBadge number={2} />
-              <span className="text-[13px] font-bold text-ink">Guincho (Opcional)</span>
+              <span className="text-[13px] font-bold text-ink">Veículo Transportado (Opcional)</span>
             </span>
-            {towSectionOpen ? (
+            {carriedSectionOpen ? (
               <ChevronUp className="size-4 text-gray-500" strokeWidth={2} />
             ) : (
               <ChevronDown className="size-4 text-gray-500" strokeWidth={2} />
             )}
           </button>
 
-          {towSectionOpen && (
+          {carriedSectionOpen && (
             <>
               <p className="-mt-1 text-xs text-muted">
-                Preencha só se o veículo está sendo transportado (ex.: pane, sinistro).
+                Preencha só se o veículo acima é um guincho/prancha levando outro veículo em cima.
               </p>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    setTowMode('fleet')
-                    setTowPlate('')
+                    setCarriedMode('fleet')
+                    setCarriedPlate('')
                   }}
                   className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                    towMode === 'fleet' ? 'bg-brand-50 text-brand' : 'border border-gray-200 bg-white text-gray-500'
+                    carriedMode === 'fleet' ? 'bg-brand-50 text-brand' : 'border border-gray-200 bg-white text-gray-500'
                   }`}
                 >
                   Veículo da frota
@@ -327,22 +376,24 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
                 <button
                   type="button"
                   onClick={() => {
-                    setTowMode('third-party')
-                    setTowVehicle(null)
+                    setCarriedMode('third-party')
+                    setCarriedVehicle(null)
+                    setCarriedNoReturnReason(null)
                   }}
                   className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                    towMode === 'third-party' ? 'bg-brand-50 text-brand' : 'border border-gray-200 bg-white text-gray-500'
+                    carriedMode === 'third-party' ? 'bg-brand-50 text-brand' : 'border border-gray-200 bg-white text-gray-500'
                   }`}
                 >
                   Terceiro (só placa)
                 </button>
-                {towMode !== 'none' && (
+                {carriedMode !== 'none' && (
                   <button
                     type="button"
                     onClick={() => {
-                      setTowMode('none')
-                      setTowVehicle(null)
-                      setTowPlate('')
+                      setCarriedMode('none')
+                      setCarriedVehicle(null)
+                      setCarriedPlate('')
+                      setCarriedNoReturnReason(null)
                     }}
                     className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-500"
                   >
@@ -351,34 +402,49 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
                 )}
               </div>
 
-              {towMode === 'fleet' && (
-                <div className="flex flex-col gap-1">
-                  <label className={labelClass}>Veículo Guincho</label>
-                  <RecordPicker
-                    value={towVehicle}
-                    onChange={setTowVehicle}
-                    getLabel={(vehicle) => `${formatPlateInput(vehicle.licensePlate)} — ${vehicleLabel(vehicle)}`}
-                    placeholder="Digite a placa do guincho..."
-                    emptyText="Nenhum veículo de frota própria encontrado."
-                    inputClassName={inputClass}
-                    fetchItems={(term) => searchFleetVehicles(term, selectedVehicle?.id)}
-                    renderItem={(vehicle) => (
-                      <>
-                        <span className="text-[13px] font-semibold text-ink">{formatPlateInput(vehicle.licensePlate)}</span>
-                        <span className="text-[11px] text-muted">{vehicleLabel(vehicle)}</span>
-                      </>
-                    )}
-                  />
-                </div>
+              {carriedMode === 'fleet' && (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <label className={labelClass}>Veículo em cima do guincho</label>
+                    <RecordPicker
+                      value={carriedVehicle}
+                      onChange={(vehicle) => {
+                        setCarriedVehicle(vehicle)
+                        if (!vehicle) setCarriedNoReturnReason(null)
+                      }}
+                      getLabel={(vehicle) => `${formatPlateInput(vehicle.licensePlate)} — ${vehicleLabel(vehicle)}`}
+                      placeholder="Digite a placa do veículo transportado..."
+                      emptyText="Nenhum veículo de frota própria encontrado."
+                      inputClassName={inputClass}
+                      fetchItems={(term) => searchFleetVehicles(term, selectedVehicle?.id)}
+                      renderItem={(vehicle) => (
+                        <>
+                          <span className="text-[13px] font-semibold text-ink">{formatPlateInput(vehicle.licensePlate)}</span>
+                          <span className="text-[11px] text-muted">{vehicleLabel(vehicle)}</span>
+                        </>
+                      )}
+                    />
+                    <p className="text-xs text-muted">
+                      Ele também fica &quot;Na Rua&quot; e tem o retorno registrado à parte, quando voltar.
+                    </p>
+                  </div>
+                  {carriedVehicle && (
+                    <NoReturnField
+                      value={carriedNoReturnReason}
+                      onChange={setCarriedNoReturnReason}
+                      subject="O veículo transportado"
+                    />
+                  )}
+                </>
               )}
 
-              {towMode === 'third-party' && (
+              {carriedMode === 'third-party' && (
                 <div className="flex flex-col gap-1">
-                  <label className={labelClass}>Placa do Guincho (terceiro)</label>
+                  <label className={labelClass}>Placa do veículo transportado (terceiro)</label>
                   <input
                     type="text"
-                    value={towPlate}
-                    onChange={(event) => setTowPlate(formatPlateInput(event.target.value))}
+                    value={carriedPlate}
+                    onChange={(event) => setCarriedPlate(formatPlateInput(event.target.value))}
                     placeholder="ABC-1234"
                     className={inputClass}
                   />

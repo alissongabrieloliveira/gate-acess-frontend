@@ -31,7 +31,8 @@ export default function ReturnDrawer({
   driverName,
   destination,
   purpose,
-  towPlate,
+  transport,
+  isCarried = false,
   departureTime,
   kmDeparture,
   defaultGateId,
@@ -124,8 +125,8 @@ export default function ReturnDrawer({
       <div className="flex flex-col gap-3">
         <p className="text-[13px] font-semibold text-ink">Resumo da Viagem</p>
         <div className="flex gap-4">
-          <Field label="Motorista" value={driverName ?? 'Sem motorista (carga)'} />
-          <Field label="Guincho" value={towPlate ? formatPlateInput(towPlate) : null} />
+          <Field label="Motorista" value={driverName ?? (isCarried ? 'Saiu no guincho' : null)} />
+          <Field label={transport?.label ?? 'Transporte'} value={transport?.value ?? null} />
         </div>
         <div className="flex gap-4">
           <Field label="Destino" value={destination} />

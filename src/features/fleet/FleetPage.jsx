@@ -5,13 +5,9 @@ import TopBar from '../../components/TopBar'
 import { formatPlateInput } from '../../lib/format'
 import GateDirectionButtons from '../gate-control/GateDirectionButtons'
 import DepartureDrawer from './DepartureDrawer'
+import { statusBadge, statusLabel } from './fleetStatus'
 import ReturnDrawer from './ReturnDrawer'
 import { enrichFleetLog, PAGE_SIZE, useFleetData } from './useFleetData'
-
-const STATUS_BADGES = {
-  ON_TRIP: { label: 'Na Rua', className: 'bg-green-100 text-green-700' },
-  RETURNED: { label: 'Retornado', className: 'bg-gray-100 text-gray-600' },
-}
 
 const FILTERS = [
   { key: 'ON_TRIP', label: 'Na Rua' },
@@ -158,7 +154,7 @@ export default function FleetPage() {
               <p className="px-5 py-8 text-sm text-muted">Nenhum registro de frota encontrado.</p>
             ) : (
               enrichedLogs.map((log) => {
-                const badge = STATUS_BADGES[log.status] ?? { label: log.status, className: 'bg-gray-100 text-gray-700' }
+                const badge = statusBadge(log.status)
                 return (
                   <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
                     <div className="flex w-[180px] flex-col gap-0.5">
@@ -166,15 +162,24 @@ export default function FleetPage() {
                         {log.vehiclePlate ? formatPlateInput(log.vehiclePlate) : '—'}
                       </p>
                       <p className="truncate text-[11px] text-gray-500">{log.vehicleLabel ?? '—'}</p>
+                      {log.transport && (
+                        <p className="truncate text-[11px] font-semibold text-brand">
+                          {log.transport.label}: {log.transport.value}
+                        </p>
+                      )}
                     </div>
-                    <p className="w-[150px] truncate text-center text-sm text-gray-700">{log.driverName ?? '—'}</p>
+                    <p className="w-[150px] truncate text-center text-sm text-gray-700">
+                      {log.driverName ?? (log.transportLogId ? 'No guincho' : '—')}
+                    </p>
                     <p className="w-[160px] truncate text-center text-sm text-gray-700">{log.destination ?? '—'}</p>
                     <p className="w-[120px] text-center text-sm text-gray-700">{formatDateTime(log.departureTime)}</p>
                     <p className="w-[120px] text-center text-sm text-subtle">
                       {log.returnTime ? formatDateTime(log.returnTime) : '----'}
                     </p>
                     <div className="flex w-[100px] items-center justify-center">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
+                      <span title={statusLabel(log)} className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>
+                        {badge.label}
+                      </span>
                     </div>
                     <div className="flex w-[90px] items-center justify-center gap-2">
                       <Link
@@ -248,7 +253,8 @@ export default function FleetPage() {
           driverName={returningLog.driverName}
           destination={returningLog.destination}
           purpose={returningLog.purpose}
-          towPlate={returningLog.towPlate}
+          transport={returningLog.transport}
+          isCarried={!!returningLog.transportLogId}
           departureTime={returningLog.departureTime}
           kmDeparture={returningLog.kmDeparture}
           defaultGateId={selectedGateId !== 'all' ? selectedGateId : lookups?.gatesList[0]?.id}

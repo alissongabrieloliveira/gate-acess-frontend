@@ -1,9 +1,12 @@
-import { Lock, Pencil, Plus, Search, Unlock } from 'lucide-react'
+import { Lock, Pencil, Plus, RotateCcw, Search, Unlock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import BlockReasonModal from '../../components/BlockReasonModal'
 import { api } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
+import { RULES } from '../../lib/rules'
+import { noReturnReasonLabel } from '../fleet/fleetStatus'
 import { PAGE_SIZE, useVehiclesData } from './useVehiclesData'
 import VehicleFormDrawer from './VehicleFormDrawer'
 
@@ -18,7 +21,12 @@ function formatDate(value) {
   })
 }
 
+// Vendido/transferido: marcado por uma saída de frota "não retorna".
+const isInactive = (vehicle) => !!vehicle.operationStatus && vehicle.operationStatus !== 'ACTIVE'
+
 export default function VehiclesPage() {
+  const { user } = useAuth()
+  const isAdmin = !!(user?.rules & RULES.ADMIN)
   const [page, setPage] = useState(1)
   const [searchText, setSearchText] = useState('')
   // Busca com debounce contra o backend (GET /vehicles?search=), que filtra
@@ -49,6 +57,17 @@ export default function VehiclesPage() {
       refetch()
     } catch (err) {
       setActionError(getErrorMessage(err, 'Não foi possível desbloquear o veículo.'))
+    }
+  }
+
+  // Veículo que voltou (ex.: transferência desfeita): libera novas saídas.
+  async function handleReactivate(vehicle) {
+    setActionError(null)
+    try {
+      await api.put(`/vehicles/${vehicle.id}`, { operationStatus: 'ACTIVE' })
+      refetch()
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Não foi possível reativar o veículo.'))
     }
   }
 
@@ -120,7 +139,14 @@ export default function VehiclesPage() {
                   <p className="w-[140px] text-[13px] text-gray-700">{formatDate(vehicle.createdAt)}</p>
                   <p className="w-[140px] text-[13px] text-gray-700">{formatDate(vehicle.updatedAt)}</p>
                   <div className="w-[100px]">
-                    {vehicle.isBlocked ? (
+                    {isInactive(vehicle) ? (
+                      <span
+                        title="Não sai mais pela Frota até ser reativado"
+                        className="whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800"
+                      >
+                        {noReturnReasonLabel(vehicle.operationStatus)?.replace(/ para .*/, '') ?? 'Inativo'}
+                      </span>
+                    ) : vehicle.isBlocked ? (
                       <span
                         title={vehicle.blockReason ?? undefined}
                         className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700"
@@ -140,7 +166,16 @@ export default function VehiclesPage() {
                     >
                       <Pencil className="size-4 text-gray-600" strokeWidth={1.75} />
                     </button>
-                    {vehicle.isBlocked ? (
+                    {isInactive(vehicle) && isAdmin ? (
+                      <button
+                        type="button"
+                        title={`Reativar (hoje: ${noReturnReasonLabel(vehicle.operationStatus) ?? vehicle.operationStatus})`}
+                        onClick={() => handleReactivate(vehicle)}
+                        className="flex size-8 items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                      >
+                        <RotateCcw className="size-4 text-gray-600" strokeWidth={1.75} />
+                      </button>
+                    ) : vehicle.isBlocked ? (
                       <button
                         type="button"
                         title="Desbloquear"

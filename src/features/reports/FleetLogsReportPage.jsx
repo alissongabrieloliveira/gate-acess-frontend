@@ -1,20 +1,13 @@
 import { ChevronDown, Eye, FileDown, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { STATUS_BADGES, statusBadge, statusLabel } from '../fleet/fleetStatus'
 import { displayKmDeparture, displayKmReturn } from '../fleet/kmRules'
 import { formatPlateInput } from '../../lib/format'
 import { openReportPrintWindow, writeReportPdf } from './exportReportPdf'
 import { enrichFleetLogReport, fetchAllFleetLogs, PAGE_SIZE, useFleetLogsReportData } from './useFleetLogsReportData'
 
-const STATUS_BADGES = {
-  ON_TRIP: { label: 'Na Rua', className: 'bg-green-100 text-green-700' },
-  RETURNED: { label: 'Retornado', className: 'bg-gray-100 text-gray-600' },
-}
-
-const STATUS_OPTIONS = [
-  { value: 'ON_TRIP', label: 'Na Rua' },
-  { value: 'RETURNED', label: 'Retornado' },
-]
+const STATUS_OPTIONS = Object.entries(STATUS_BADGES).map(([value, badge]) => ({ value, label: badge.label }))
 
 const selectClass =
   'appearance-none rounded-[10px] border border-gray-200 bg-white py-2.5 pl-3.5 pr-8 text-sm font-medium text-ink focus:border-brand focus:outline-none'
@@ -45,13 +38,13 @@ const EXPORT_COLUMNS = [
   { label: 'Placa', value: (r) => (r.vehiclePlate ? formatPlateInput(r.vehiclePlate) : '—') },
   { label: 'Identificação', value: (r) => r.vehicleIdentification ?? '—' },
   { label: 'Veículo', value: (r) => r.vehicleLabel ?? '—' },
-  { label: 'Motorista', value: (r) => r.driverName ?? '—' },
+  { label: 'Motorista', value: (r) => r.driverName ?? (r.transportLogId ? 'No guincho' : '—') },
   { label: 'Destino', value: (r) => r.destination ?? '—' },
   { label: 'Saída', value: (r) => formatDateTime(r.departureTime) },
   { label: 'KM de Saída', value: (r) => displayKmDeparture(r) },
   { label: 'Retorno', value: (r) => formatDateTime(r.returnTime) },
   { label: 'KM de Retorno', value: (r) => displayKmReturn(r) },
-  { label: 'Status', value: (r) => (r.status === 'ON_TRIP' ? 'Na Rua' : r.status === 'RETURNED' ? 'Retornado' : r.status) },
+  { label: 'Status', value: (r) => statusLabel(r) },
 ]
 
 export default function FleetLogsReportPage() {
@@ -92,7 +85,7 @@ export default function FleetLogsReportPage() {
       const allLogs = await fetchAllFleetLogs({ status, from: normalizedFrom, to: normalizedTo, search: debouncedSearch })
       const enrichedAll = allLogs.map(enrichFleetLogReport)
       const filterParts = []
-      if (status) filterParts.push(status === 'ON_TRIP' ? 'Status: Na Rua' : 'Status: Retornado')
+      if (status) filterParts.push(`Status: ${statusBadge(status).label}`)
       if (from) filterParts.push(`De: ${new Date(from).toLocaleDateString('pt-BR')}`)
       if (to) filterParts.push(`Até: ${new Date(to).toLocaleDateString('pt-BR')}`)
       if (debouncedSearch.trim()) filterParts.push(`Busca: "${debouncedSearch.trim()}"`)
@@ -192,7 +185,7 @@ export default function FleetLogsReportPage() {
               <p className="px-5 py-8 text-sm text-muted">Nenhum registro de frota encontrado para os filtros selecionados.</p>
             ) : (
               logs.map((log) => {
-                const badge = STATUS_BADGES[log.status] ?? { label: log.status, className: 'bg-gray-100 text-gray-700' }
+                const badge = statusBadge(log.status)
                 return (
                   <div key={log.id} className="flex items-center justify-between border-t border-gray-200 px-5 py-3.5">
                     <div className="flex w-[160px] flex-col gap-0.5">
@@ -209,7 +202,9 @@ export default function FleetLogsReportPage() {
                     <p className="w-[110px] text-center text-sm text-subtle">{formatDateTime(log.returnTime)}</p>
                     <p className="w-[90px] text-center text-sm text-subtle">{displayKmReturn(log)}</p>
                     <div className="flex w-[90px] items-center justify-center">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
+                      <span title={statusLabel(log)} className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>
+                        {badge.label}
+                      </span>
                     </div>
                     <div className="flex w-[80px] items-center justify-center">
                       <Link
