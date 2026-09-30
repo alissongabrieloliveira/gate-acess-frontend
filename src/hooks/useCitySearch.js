@@ -35,3 +35,9 @@ export function useCitySearch(query) {
 export function formatCityLabel(city) {
   return `${city.name} - ${city.stateAbbr}`
 }
+
+// Mesma busca, no formato do RecordPicker (fetchItems).
+export async function searchCities(term) {
+  const { data } = await api.get('/cities', { params: { search: term.trim(), limit: MAX_SUGGESTIONS } })
+  return data.data
+}

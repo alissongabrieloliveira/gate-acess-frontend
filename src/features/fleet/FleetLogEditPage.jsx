@@ -5,6 +5,7 @@ import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFee
 import RecordPicker from '../../components/RecordPicker'
 import { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { TopBarControls } from '../../components/TopBar'
+import { formatCityLabel, searchCities } from '../../hooks/useCitySearch'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { fromDateTimeLocal, toDateTimeLocal } from '../../lib/dateTimeInput'
@@ -82,7 +83,9 @@ export default function FleetLogEditPage() {
 
   const [vehicle, setVehicle] = useState(null)
   const [driver, setDriver] = useState(null)
-  const [destination, setDestination] = useState('')
+  // Destino só da lista de cidades. O valor atual pode ser texto antigo (sem
+  // id): fica como está até alguém escolher outra cidade ou limpar.
+  const [destinationCity, setDestinationCity] = useState(null)
   const [purpose, setPurpose] = useState('')
   const [kmDeparture, setKmDeparture] = useState('')
   const [kmReturn, setKmReturn] = useState('')
@@ -102,7 +105,7 @@ export default function FleetLogEditPage() {
     setVehicle(detail.vehicle)
     setDriver(detail.driver ?? null)
     const { log } = detail
-    setDestination(log.destination ?? '')
+    setDestinationCity(log.destination ? { id: null, label: log.destination } : null)
     setPurpose(log.purpose ?? '')
     setKmDeparture(kmToInput(log.kmDeparture))
     setKmReturn(kmToInput(log.kmReturn))
@@ -159,7 +162,8 @@ export default function FleetLogEditPage() {
     const payload = {}
     if (vehicle && vehicle.id !== log.vehicleId) payload.vehicleId = vehicle.id
     if (driver && driver.id !== log.driverId) payload.driverId = driver.id
-    if (destination !== (log.destination ?? '')) payload.destination = destination
+    if (destinationCity?.id) payload.destinationCityId = destinationCity.id
+    else if (!destinationCity && log.destination) payload.destinationCityId = null
     if (purpose !== (log.purpose ?? '')) payload.purpose = purpose
     if (departureTime !== toDateTimeLocal(log.departureTime)) payload.departureTime = departureDate
     if (hasReturned && returnTime !== toDateTimeLocal(log.returnTime)) payload.returnTime = returnDate
@@ -412,15 +416,16 @@ export default function FleetLogEditPage() {
             {isAdmin ? (
               <div className="flex gap-4">
                 <div className="flex flex-1 flex-col gap-1">
-                  <label htmlFor="destination" className={labelClass}>
-                    Destino
-                  </label>
-                  <input
-                    id="destination"
-                    value={destination}
-                    maxLength={255}
-                    onChange={(e) => setDestination(e.target.value)}
-                    className={inputClass}
+                  <label className={labelClass}>Destino</label>
+                  <RecordPicker
+                    value={destinationCity}
+                    onChange={setDestinationCity}
+                    getLabel={(city) => city.label ?? formatCityLabel(city)}
+                    placeholder="Digite a cidade..."
+                    emptyText="Nenhuma cidade encontrada — confira a grafia (com acento)."
+                    inputClassName={inputClass}
+                    fetchItems={searchCities}
+                    renderItem={(city) => <span className="text-[13px] font-semibold text-ink">{formatCityLabel(city)}</span>}
                   />
                 </div>
                 <div className="flex flex-1 flex-col gap-1">

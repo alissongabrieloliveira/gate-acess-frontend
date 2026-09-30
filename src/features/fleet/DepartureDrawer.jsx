@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import RecordPicker from '../../components/RecordPicker'
 import SlideOver from '../../components/SlideOver'
 import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
-import { useCitySearch, formatCityLabel } from '../../hooks/useCitySearch'
+import { formatCityLabel, searchCities } from '../../hooks/useCitySearch'
 import { useRemoteSuggestions } from '../../hooks/useRemoteSuggestions'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
@@ -93,7 +93,9 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
   const [carriedVehicle, setCarriedVehicle] = useState(null)
   const [carriedPlate, setCarriedPlate] = useState('')
   const [carriedNoReturnReason, setCarriedNoReturnReason] = useState(null)
-  const [destination, setDestination] = useState('')
+  // Destino só da lista de cidades (IBGE): texto livre deixava o mesmo lugar
+  // gravado de vários jeitos ("Vila", "Vila Propício - GO").
+  const [destinationCity, setDestinationCity] = useState(null)
   const [purpose, setPurpose] = useState('')
   const [kmDeparture, setKmDeparture] = useState('')
   const [kmUnavailable, setKmUnavailable] = useState(false)
@@ -108,17 +110,13 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
   const [fuelLevelDeparture, setFuelLevelDeparture] = useState('')
   const [observation, setObservation] = useState('')
   const [plateFocused, setPlateFocused] = useState(false)
-  const [destinationFocused, setDestinationFocused] = useState(false)
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const plateInputRef = useRef(null)
-  const destinationInputRef = useRef(null)
   // Id do veículo cujo último KM ainda interessa: descarta a resposta de uma
   // consulta atrasada se o operador já trocou/limpou o veículo.
   const lastKmRequestRef = useRef(null)
-
-  const citySuggestions = useCitySearch(destination)
 
   const plateDigits = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
   const { items: vehicleSuggestions, isLoading: isSearchingVehicles } = useRemoteSuggestions(plateDigits, {
@@ -169,11 +167,6 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
     plateInputRef.current?.focus()
   }
 
-  function selectCity(city) {
-    setDestination(formatCityLabel(city))
-    destinationInputRef.current?.blur()
-  }
-
   const vehicleBlocked = selectedVehicle?.isBlocked
   const canSubmit = !!selectedVehicle && !vehicleBlocked && !!driver
 
@@ -208,7 +201,7 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
         carriedVehiclePlate: carriedMode === 'third-party' && carriedPlate.trim() ? carriedPlate : undefined,
         carriedNoReturnReason:
           carriedMode === 'fleet' && carriedVehicle && carriedNoReturnReason ? carriedNoReturnReason : undefined,
-        destination: destination.trim() || undefined,
+        destinationCityId: destinationCity?.id,
         purpose: purpose.trim() || undefined,
         departureGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
         kmDeparture: kmUnavailable ? undefined : parseKm(kmDeparture),
@@ -464,27 +457,18 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
           </div>
 
           <div className="flex gap-2">
-            <div className="relative flex flex-1 flex-col gap-1">
+            <div className="flex flex-1 flex-col gap-1">
               <label className={labelClass}>Destino</label>
-              <input
-                ref={destinationInputRef}
-                type="text"
-                value={destination}
-                onChange={(event) => setDestination(event.target.value)}
-                onFocus={() => setDestinationFocused(true)}
-                onBlur={() => setDestinationFocused(false)}
-                placeholder="Ex.: São Paulo - SP ou Cliente XPTO"
-                className={inputClass}
+              <RecordPicker
+                value={destinationCity}
+                onChange={setDestinationCity}
+                getLabel={formatCityLabel}
+                placeholder="Digite a cidade..."
+                emptyText="Nenhuma cidade encontrada — confira a grafia (com acento)."
+                inputClassName={inputClass}
+                fetchItems={searchCities}
+                renderItem={(city) => <span className="text-[13px] font-semibold text-ink">{formatCityLabel(city)}</span>}
               />
-              {destinationFocused && (
-                <SuggestionsDropdown
-                  items={citySuggestions}
-                  onSelect={selectCity}
-                  renderItem={(city) => (
-                    <span className="text-[13px] font-semibold text-ink">{formatCityLabel(city)}</span>
-                  )}
-                />
-              )}
             </div>
             <div className="flex flex-1 flex-col gap-1">
               <label className={labelClass}>Motivo</label>
