@@ -163,7 +163,6 @@ export default function FleetLogEditPage() {
     if (vehicle && vehicle.id !== log.vehicleId) payload.vehicleId = vehicle.id
     if (driver && driver.id !== log.driverId) payload.driverId = driver.id
     if (destinationCity?.id) payload.destinationCityId = destinationCity.id
-    else if (!destinationCity && log.destination) payload.destinationCityId = null
     if (purpose !== (log.purpose ?? '')) payload.purpose = purpose
     if (departureTime !== toDateTimeLocal(log.departureTime)) payload.departureTime = departureDate
     if (hasReturned && returnTime !== toDateTimeLocal(log.returnTime)) payload.returnTime = returnDate
@@ -178,6 +177,12 @@ export default function FleetLogEditPage() {
   async function handleSubmit(event) {
     event.preventDefault()
     setSubmitError(null)
+    // Destino é obrigatório: dá pra trocar, não pra apagar (registro antigo
+    // sem destino continua podendo ser salvo sem ele).
+    if (isAdmin && !destinationCity && log.destination) {
+      setSubmitError('Informe o destino (cidade).')
+      return
+    }
     if (isAdmin && !vehicle) {
       setSubmitError('Informe o veículo do registro.')
       return
@@ -416,13 +421,13 @@ export default function FleetLogEditPage() {
             {isAdmin ? (
               <div className="flex gap-4">
                 <div className="flex flex-1 flex-col gap-1">
-                  <label className={labelClass}>Destino</label>
+                  <label className={labelClass}>Destino *</label>
                   <RecordPicker
                     value={destinationCity}
                     onChange={setDestinationCity}
                     getLabel={(city) => city.label ?? formatCityLabel(city)}
                     placeholder="Digite a cidade..."
-                    emptyText="Nenhuma cidade encontrada — confira a grafia (com acento)."
+                    emptyText="Nenhuma cidade encontrada — confira a grafia."
                     inputClassName={inputClass}
                     fetchItems={searchCities}
                     renderItem={(city) => <span className="text-[13px] font-semibold text-ink">{formatCityLabel(city)}</span>}

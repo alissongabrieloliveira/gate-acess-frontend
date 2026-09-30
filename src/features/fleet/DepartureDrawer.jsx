@@ -168,7 +168,7 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
   }
 
   const vehicleBlocked = selectedVehicle?.isBlocked
-  const canSubmit = !!selectedVehicle && !vehicleBlocked && !!driver
+  const canSubmit = !!selectedVehicle && !vehicleBlocked && !!driver && !!destinationCity
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -179,6 +179,10 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
     }
     if (!driver) {
       setError('Informe o motorista do veículo.')
+      return
+    }
+    if (!destinationCity) {
+      setError('Informe o destino (cidade).')
       return
     }
     const kmCheck = checkDepartureKm({ raw: kmDeparture, unavailable: kmUnavailable, lastKm })
@@ -458,13 +462,13 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
 
           <div className="flex gap-2">
             <div className="flex flex-1 flex-col gap-1">
-              <label className={labelClass}>Destino</label>
+              <label className={labelClass}>Destino *</label>
               <RecordPicker
                 value={destinationCity}
                 onChange={setDestinationCity}
                 getLabel={formatCityLabel}
                 placeholder="Digite a cidade..."
-                emptyText="Nenhuma cidade encontrada — confira a grafia (com acento)."
+                emptyText="Nenhuma cidade encontrada — confira a grafia."
                 inputClassName={inputClass}
                 fetchItems={searchCities}
                 renderItem={(city) => <span className="text-[13px] font-semibold text-ink">{formatCityLabel(city)}</span>}
