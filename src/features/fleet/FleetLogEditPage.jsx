@@ -33,7 +33,13 @@ const PERSON_TYPE_VISITOR = 1
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000
 
 const kmToInput = (value) => (value == null ? '' : String(value))
-const brandModelLabel = (vehicle) => [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo'
+const brandModelLabel = (vehicle) =>
+  [
+    [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo',
+    vehicle.identificationCode && `Nº ${vehicle.identificationCode}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 const vehicleOptionLabel = (vehicle) => `${formatPlateInput(vehicle.licensePlate)} — ${brandModelLabel(vehicle)}`
 const noCheck = { error: null, warning: null }
 
@@ -280,7 +286,7 @@ export default function FleetLogEditPage() {
                   value={vehicle}
                   onChange={setVehicle}
                   getLabel={vehicleOptionLabel}
-                  placeholder="Digite a placa do veículo certo..."
+                  placeholder="Digite a placa ou nº de identificação do veículo certo..."
                   emptyText="Nenhum veículo de frota própria encontrado."
                   inputClassName={inputClass}
                   fetchItems={async (term) => {

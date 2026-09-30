@@ -19,9 +19,18 @@ const labelClass = 'text-xs font-semibold text-gray-600'
 const VEHICLE_TYPE_FLEET = 2
 const PERSON_TYPE_VISITOR = 1
 
-const vehicleLabel = (vehicle) => [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo'
+// Marca/modelo + nº de identificação (quando há) — mostra por que o veículo
+// apareceu quando a busca bateu pela identificação.
+const vehicleLabel = (vehicle) =>
+  [
+    [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo',
+    vehicle.identificationCode && `Nº ${vehicle.identificationCode}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
-// Veículos da frota própria cuja placa contém o termo (busca no servidor).
+// Veículos da frota própria cuja placa ou nº de identificação contém o termo
+// (busca no servidor).
 // Vendidos/transferidos (operationStatus != ACTIVE) não saem mais.
 async function searchFleetVehicles(term, excludeId) {
   const plateTerm = term.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
@@ -255,7 +264,7 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
           </div>
 
           <div className="relative flex flex-col gap-1">
-            <label className={labelClass}>Placa *</label>
+            <label className={labelClass}>Placa ou Nº de Identificação *</label>
             <div className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 focus-within:border-brand">
               <input
                 ref={plateInputRef}
@@ -263,12 +272,14 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
                 value={plate}
                 disabled={!!selectedVehicle}
                 onChange={(event) => {
-                  setPlate(formatPlateInput(event.target.value))
+                  // Sem a máscara de placa: o mesmo campo aceita o nº de
+                  // identificação (até 30 caracteres, pode ter traço).
+                  setPlate(event.target.value.toUpperCase().slice(0, 30))
                   setSelectedVehicle(null)
                 }}
                 onFocus={() => setPlateFocused(true)}
                 onBlur={() => setPlateFocused(false)}
-                placeholder="ABC-1234"
+                placeholder="ABC-1234 ou nº de identificação"
                 className="w-full text-[13px] text-ink placeholder:text-gray-400 focus:outline-none disabled:bg-transparent"
               />
               <Search className="size-4 shrink-0 text-gray-400" strokeWidth={1.75} />
@@ -280,9 +291,7 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
                 renderItem={(vehicle) => (
                   <>
                     <span className="text-[13px] font-semibold text-ink">{formatPlateInput(vehicle.licensePlate)}</span>
-                    <span className="text-[11px] text-muted">
-                      {[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo'}
-                    </span>
+                    <span className="text-[11px] text-muted">{vehicleLabel(vehicle)}</span>
                   </>
                 )}
               />
@@ -294,7 +303,7 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
             )}
             {selectedVehicle && !vehicleBlocked && (
               <p className="text-xs text-green-700">
-                {[selectedVehicle.brand, selectedVehicle.model].filter(Boolean).join(' ') || 'Veículo selecionado'} ·{' '}
+                {vehicleLabel(selectedVehicle)} ·{' '}
                 <button type="button" onClick={clearVehicle} className="font-semibold underline">
                   Trocar
                 </button>
@@ -410,7 +419,7 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
                         if (!vehicle) setCarriedNoReturnReason(null)
                       }}
                       getLabel={(vehicle) => `${formatPlateInput(vehicle.licensePlate)} — ${vehicleLabel(vehicle)}`}
-                      placeholder="Digite a placa do veículo transportado..."
+                      placeholder="Digite a placa ou nº de identificação..."
                       emptyText="Nenhum veículo de frota própria encontrado."
                       inputClassName={inputClass}
                       fetchItems={(term) => searchFleetVehicles(term, selectedVehicle?.id)}

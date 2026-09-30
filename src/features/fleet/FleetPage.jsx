@@ -85,7 +85,7 @@ export default function FleetPage() {
             type="text"
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Buscar por placa, motorista ou destino"
+            placeholder="Buscar por placa, identificação, motorista ou destino"
             className="w-full text-sm text-ink placeholder:text-subtle focus:outline-none"
           />
         </div>
