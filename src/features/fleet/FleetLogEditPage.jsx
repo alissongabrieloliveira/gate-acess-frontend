@@ -9,13 +9,11 @@ import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { fromDateTimeLocal, toDateTimeLocal } from '../../lib/dateTimeInput'
 import { getErrorMessage } from '../../lib/errors'
-import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
+import { formatCpf, formatPlateInput } from '../../lib/format'
 import { parseKm } from '../../lib/km'
 import { RULES } from '../../lib/rules'
-import { formatPersonName, handleNameChange } from '../../lib/nameCase'
 import { statusBadge, statusLabel } from './fleetStatus'
 import { checkDepartureKm, checkReturnKm, displayKmDeparture, displayKmReturn } from './kmRules'
-import { PERSON_TYPES } from './useFleetData'
 import { useFleetLogDetail } from './useFleetLogDetail'
 
 const inputClass = 'h-10 w-full rounded-[10px] border border-gray-200 px-3.5 text-sm font-semibold text-ink focus:border-brand focus:outline-none'
@@ -23,6 +21,10 @@ const readOnlyClass = 'h-10 w-full cursor-not-allowed rounded-[10px] border bord
 const labelClass = 'text-[11px] font-semibold uppercase text-subtle'
 const READONLY_TITLE = 'Somente administradores podem corrigir os dados do registro de frota'
 const TOW_PLATE_TITLE = 'Placa de guincho de terceiro não é editável — não é um veículo cadastrado'
+const TOW_TITLE = 'Troque o guincho no registro do próprio guincho'
+const SWAP_HINT = 'Escolha outro cadastro para trocar. Para corrigir nome/CPF/placa, use Cadastros.'
+// vehicles.vehicle_type: 2 = Frota Própria.
+const VEHICLE_TYPE_FLEET = 2
 const NOT_RETURNED_TITLE = 'Este veículo ainda não retornou — registre o retorno pelo fluxo normal'
 // people.person_type: 1 = Visitante (não pode ser motorista da frota).
 const PERSON_TYPE_VISITOR = 1
@@ -30,7 +32,8 @@ const PERSON_TYPE_VISITOR = 1
 const FUTURE_TOLERANCE_MS = 5 * 60 * 1000
 
 const kmToInput = (value) => (value == null ? '' : String(value))
-const initialBrandModel = (vehicle) => [vehicle.brand, vehicle.model].filter(Boolean).join(' ')
+const brandModelLabel = (vehicle) => [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo'
+const vehicleOptionLabel = (vehicle) => `${formatPlateInput(vehicle.licensePlate)} — ${brandModelLabel(vehicle)}`
 const noCheck = { error: null, warning: null }
 
 function formatDateTime(value) {
@@ -61,13 +64,12 @@ function ReadOnlyField({ label, title = READONLY_TITLE, children }) {
 }
 
 /**
- * Veículo, motorista e guincho cadastrado são editáveis por qualquer operador
- * (PUT /vehicles/:id e PUT /people/:id — cadastros compartilhados). Os dados
- * do registro de frota em si (destino, motivo, KM, datas) só por admin, via
- * PUT /fleet-logs/:id — para os demais ficam visíveis mas bloqueados. Placa
- * de guincho de terceiro (`transportedByPlate`) continua bloqueada pra todos.
- * Registro que ficou sem motorista (antes de ele ser obrigatório): o admin
- * informa aqui. O veículo levado em cima do guincho não tem motorista.
+ * Tudo aqui é do registro de frota em si e só o admin corrige (PUT
+ * /fleet-logs/:id); para os demais fica visível mas bloqueado. Veículo e
+ * motorista são TROCADOS por outro cadastro (busca) — nunca editam o
+ * cadastro: corrigir nome/CPF/placa é em Cadastros (antes, digitar outro nome
+ * aqui renomeava a pessoa indicada errado). O guincho de um veículo
+ * transportado se troca no registro do próprio guincho.
  */
 export default function FleetLogEditPage() {
   const { id } = useParams()
@@ -78,14 +80,8 @@ export default function FleetLogEditPage() {
   const [gatesList, setGatesList] = useState([])
   const [selectedGateId, setSelectedGateId] = useState('all')
 
-  const [plate, setPlate] = useState('')
-  const [brandModel, setBrandModel] = useState('')
-  const [driverName, setDriverName] = useState('')
-  const [driverCpf, setDriverCpf] = useState('')
-  const [driverType, setDriverType] = useState(3)
-  const [towPlate, setTowPlate] = useState('')
-  const [missingDriver, setMissingDriver] = useState(null)
-  const [towBrandModel, setTowBrandModel] = useState('')
+  const [vehicle, setVehicle] = useState(null)
+  const [driver, setDriver] = useState(null)
   const [destination, setDestination] = useState('')
   const [purpose, setPurpose] = useState('')
   const [kmDeparture, setKmDeparture] = useState('')
@@ -103,17 +99,8 @@ export default function FleetLogEditPage() {
 
   useEffect(() => {
     if (!detail) return
-    setPlate(detail.vehicle.licensePlate ?? '')
-    setBrandModel(initialBrandModel(detail.vehicle))
-    if (detail.driver) {
-      setDriverName(detail.driver.name ?? '')
-      setDriverCpf(formatCpf(detail.driver.cpf))
-      setDriverType(detail.driver.personType)
-    }
-    if (detail.transportingVehicle) {
-      setTowPlate(detail.transportingVehicle.licensePlate ?? '')
-      setTowBrandModel(initialBrandModel(detail.transportingVehicle))
-    }
+    setVehicle(detail.vehicle)
+    setDriver(detail.driver ?? null)
     const { log } = detail
     setDestination(log.destination ?? '')
     setPurpose(log.purpose ?? '')
@@ -123,16 +110,6 @@ export default function FleetLogEditPage() {
     setDepartureTime(toDateTimeLocal(log.departureTime))
     setReturnTime(toDateTimeLocal(log.returnTime))
   }, [detail])
-
-  const driverCpfDigits = driverCpf.replace(/\D/g, '')
-  // CPF é opcional em people — só precisa ser válido quando algo foi
-  // digitado, mesmo critério já usado em PersonFormDrawer/AccessLogEditPage.
-  // CPF já gravado (mesmo inválido, de cadastro antigo) não trava o
-  // formulário — só um CPF novo digitado precisa ser válido.
-  const driverCpfIsValid =
-    driverCpfDigits.length === 0 ||
-    isValidCpf(driverCpfDigits) ||
-    driverCpfDigits === (detail?.driver?.cpf ?? '').replace(/\D/g, '')
 
   const log = detail?.log
   const hasReturned = !!log?.returnTime
@@ -180,6 +157,8 @@ export default function FleetLogEditPage() {
   // Só manda o que mudou — o backend trata campo ausente como "mantém".
   function buildLogPayload() {
     const payload = {}
+    if (vehicle && vehicle.id !== log.vehicleId) payload.vehicleId = vehicle.id
+    if (driver && driver.id !== log.driverId) payload.driverId = driver.id
     if (destination !== (log.destination ?? '')) payload.destination = destination
     if (purpose !== (log.purpose ?? '')) payload.purpose = purpose
     if (departureTime !== toDateTimeLocal(log.departureTime)) payload.departureTime = departureDate
@@ -195,8 +174,12 @@ export default function FleetLogEditPage() {
   async function handleSubmit(event) {
     event.preventDefault()
     setSubmitError(null)
-    if (detail.driver && !driverCpfIsValid) {
-      setSubmitError('CPF do motorista inválido.')
+    if (isAdmin && !vehicle) {
+      setSubmitError('Informe o veículo do registro.')
+      return
+    }
+    if (isAdmin && hasDriverSection && detail.driver && !driver) {
+      setSubmitError('Informe o motorista do registro.')
       return
     }
     if (logFieldsBlocked) {
@@ -209,30 +192,8 @@ export default function FleetLogEditPage() {
     }
     setIsSubmitting(true)
     try {
-      // Só regrava o cadastro que mudou: o campo único "Marca / Modelo" é
-      // gravado inteiro em `model`, e regravar sem mudança duplicaria a
-      // marca ("Volvo" + "Volvo FH 540").
-      if (plate !== (detail.vehicle.licensePlate ?? '') || brandModel !== initialBrandModel(detail.vehicle)) {
-        await api.put(`/vehicles/${detail.vehicle.id}`, { licensePlate: plate, model: brandModel || undefined })
-      }
-      const driverChanged =
-        detail.driver &&
-        (driverName !== (detail.driver.name ?? '') ||
-          driverCpfDigits !== (detail.driver.cpf ?? '').replace(/\D/g, '') ||
-          driverType !== detail.driver.personType)
-      if (driverChanged) {
-        // CPF não é normalizado pelo backend (fica salvo exatamente como
-        // chega) — envia só os dígitos, mesmo tratamento já usado no resto
-        // do app.
-        await api.put(`/people/${detail.driver.id}`, { name: driverName, cpf: driverCpfDigits, personType: driverType })
-      }
-      const tow = detail.transportingVehicle
-      if (tow && (towPlate !== (tow.licensePlate ?? '') || towBrandModel !== initialBrandModel(tow))) {
-        await api.put(`/vehicles/${tow.id}`, { licensePlate: towPlate, model: towBrandModel || undefined })
-      }
       if (isAdmin) {
         const payload = buildLogPayload()
-        if (missingDriver) payload.driverId = missingDriver.id
         if (Object.keys(payload).length > 0) await api.put(`/fleet-logs/${id}`, payload)
       }
       navigate(`/fleet/${id}`)
@@ -246,10 +207,11 @@ export default function FleetLogEditPage() {
   const hasTowSection = !!(detail && (detail.transportingVehicle || detail.log.transportedByPlate))
   const carriedLogs = detail?.log.carriedLogs ?? []
   const hasCarriedSection = carriedLogs.length > 0 || !!detail?.log.carriedVehiclePlate
-  const needsDriver = !!detail && !detail.driver && !detail.log.transportLogId
+  // O veículo levado em cima do guincho não tem motorista.
+  const hasDriverSection = !!detail && !detail.log.transportLogId
   let sectionNumber = 1
   const vehicleSectionNumber = sectionNumber++
-  const driverSectionNumber = detail?.driver || needsDriver ? sectionNumber++ : null
+  const driverSectionNumber = hasDriverSection ? sectionNumber++ : null
   const towSectionNumber = hasTowSection ? sectionNumber++ : null
   const carriedSectionNumber = hasCarriedSection ? sectionNumber++ : null
   const destinationSectionNumber = detail ? sectionNumber++ : null
@@ -302,83 +264,71 @@ export default function FleetLogEditPage() {
 
           <div className="flex flex-col gap-2">
             <SectionHeader number={vehicleSectionNumber} icon={<Car className="size-4 text-ink" strokeWidth={1.75} />} title="Veículo" />
-            <div className="flex gap-4">
-              <div className="flex flex-1 flex-col gap-1">
-                <label className={labelClass}>Placa</label>
-                <input value={plate} onChange={(e) => setPlate(e.target.value)} required className={inputClass} />
+            {isAdmin ? (
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>Veículo da frota</label>
+                <RecordPicker
+                  value={vehicle}
+                  onChange={setVehicle}
+                  getLabel={vehicleOptionLabel}
+                  placeholder="Digite a placa do veículo certo..."
+                  emptyText="Nenhum veículo de frota própria encontrado."
+                  inputClassName={inputClass}
+                  fetchItems={async (term) => {
+                    const { data } = await api.get('/vehicles', {
+                      params: { search: term.replace(/[^A-Za-z0-9]/g, ''), vehicleType: VEHICLE_TYPE_FLEET, limit: 20 },
+                    })
+                    return data.data.filter((v) => v.id !== detail.log.transportingVehicleId).slice(0, MAX_SUGGESTIONS)
+                  }}
+                  renderItem={(option) => (
+                    <>
+                      <span className="text-[13px] font-semibold text-ink">{formatPlateInput(option.licensePlate)}</span>
+                      <span className="text-[11px] text-muted">{brandModelLabel(option)}</span>
+                    </>
+                  )}
+                />
+                <p className="text-xs text-muted">{SWAP_HINT}</p>
               </div>
-              <div className="flex flex-1 flex-col gap-1">
-                <label className={labelClass}>Marca / Modelo</label>
-                <input value={brandModel} onChange={(e) => setBrandModel(e.target.value)} className={inputClass} />
+            ) : (
+              <div className="flex gap-4">
+                <ReadOnlyField label="Placa">{formatPlateInput(detail.vehicle.licensePlate)}</ReadOnlyField>
+                <ReadOnlyField label="Marca / Modelo">{brandModelLabel(detail.vehicle)}</ReadOnlyField>
               </div>
-            </div>
+            )}
           </div>
 
-          {detail.driver && (
-            <>
-              <hr className="border-gray-200" />
-              <div className="flex flex-col gap-2">
-                <SectionHeader number={driverSectionNumber} icon={<User className="size-4 text-ink" strokeWidth={1.75} />} title="Motorista" />
-                <div className="flex gap-4">
-                  <div className="flex flex-1 flex-col gap-1">
-                    <label className={labelClass}>Nome Completo</label>
-                    <input value={driverName} onChange={(e) => handleNameChange(e, formatPersonName, setDriverName)} required className={inputClass} />
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1">
-                    <label className={labelClass}>CPF</label>
-                    <input value={driverCpf} onChange={(e) => setDriverCpf(formatCpf(e.target.value))} className={inputClass} />
-                    {driverCpfDigits.length === 11 && !driverCpfIsValid && (
-                      <p className="text-xs text-red-600">CPF inválido</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <p className={labelClass}>Tipo de Pessoa</p>
-                  <div className="flex gap-2">
-                    {PERSON_TYPES.map((type) => (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() => setDriverType(type.value)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                          driverType === type.value ? 'bg-brand-50 text-brand' : 'border border-gray-200 bg-white text-gray-500'
-                        }`}
-                      >
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {needsDriver && (
+          {hasDriverSection && (
             <>
               <hr className="border-gray-200" />
               <div className="flex flex-col gap-2">
                 <SectionHeader number={driverSectionNumber} icon={<User className="size-4 text-ink" strokeWidth={1.75} />} title="Motorista" />
                 {isAdmin ? (
-                  <div className="flex flex-col gap-1">
-                    <label className={labelClass}>Motorista (registro ficou sem)</label>
-                    <RecordPicker
-                      value={missingDriver}
-                      onChange={setMissingDriver}
-                      getLabel={(person) => person.name}
-                      placeholder="Digite o nome ou CPF do motorista..."
-                      emptyText="Nenhum motorista encontrado (visitantes e bloqueados não aparecem)."
-                      inputClassName={inputClass}
-                      fetchItems={async (term) => {
-                        const { data } = await api.get('/people', { params: { search: term, blocked: false, limit: 20 } })
-                        return data.data.filter((p) => p.personType !== PERSON_TYPE_VISITOR).slice(0, MAX_SUGGESTIONS)
-                      }}
-                      renderItem={(person) => <span className="text-[13px] font-semibold text-ink">{person.name}</span>}
-                    />
+                  <div className="flex gap-4">
+                    <div className="flex flex-1 flex-col gap-1">
+                      <label className={labelClass}>Motorista{!detail.driver && ' (registro ficou sem)'}</label>
+                      <RecordPicker
+                        value={driver}
+                        onChange={setDriver}
+                        getLabel={(person) => person.name}
+                        placeholder="Digite o nome ou CPF do motorista certo..."
+                        emptyText="Nenhum motorista encontrado (visitantes e bloqueados não aparecem)."
+                        inputClassName={inputClass}
+                        fetchItems={async (term) => {
+                          const { data } = await api.get('/people', { params: { search: term, blocked: false, limit: 20 } })
+                          return data.data.filter((p) => p.personType !== PERSON_TYPE_VISITOR).slice(0, MAX_SUGGESTIONS)
+                        }}
+                        renderItem={(person) => <span className="text-[13px] font-semibold text-ink">{person.name}</span>}
+                      />
+                      <p className="text-xs text-muted">{SWAP_HINT}</p>
+                    </div>
+                    <ReadOnlyField label="CPF" title="Dado do cadastro — corrija em Cadastros > Pessoas">
+                      {driver?.cpf ? formatCpf(driver.cpf) : '—'}
+                    </ReadOnlyField>
                   </div>
                 ) : (
                   <div className="flex gap-4">
-                    <ReadOnlyField label="Motorista">Não informado</ReadOnlyField>
-                    <div className="flex-1" />
+                    <ReadOnlyField label="Nome Completo">{detail.driver?.name ?? 'Não informado'}</ReadOnlyField>
+                    <ReadOnlyField label="CPF">{detail.driver?.cpf ? formatCpf(detail.driver.cpf) : '—'}</ReadOnlyField>
                   </div>
                 )}
               </div>
@@ -396,13 +346,15 @@ export default function FleetLogEditPage() {
                 />
                 {detail.transportingVehicle ? (
                   <div className="flex gap-4">
-                    <div className="flex flex-1 flex-col gap-1">
-                      <label className={labelClass}>Placa</label>
-                      <input value={towPlate} onChange={(e) => setTowPlate(e.target.value)} className={inputClass} />
-                    </div>
-                    <div className="flex flex-1 flex-col gap-1">
-                      <label className={labelClass}>Marca / Modelo</label>
-                      <input value={towBrandModel} onChange={(e) => setTowBrandModel(e.target.value)} className={inputClass} />
+                    <ReadOnlyField label="Placa" title={TOW_TITLE}>
+                      {formatPlateInput(detail.transportingVehicle.licensePlate)}
+                    </ReadOnlyField>
+                    <div className="flex flex-1 items-end pb-2">
+                      {detail.log.transportLogId && (
+                        <Link to={`/fleet/${detail.log.transportLogId}/edit`} className="text-[13px] font-semibold text-brand hover:underline">
+                          Editar registro do guincho
+                        </Link>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -605,7 +557,7 @@ export default function FleetLogEditPage() {
           <div className="mt-auto flex items-center justify-end gap-3 pt-2">
             <button
               type="submit"
-              disabled={isSubmitting || (!!detail.driver && !driverCpfIsValid) || logFieldsBlocked}
+              disabled={isSubmitting || logFieldsBlocked}
               className="rounded-[10px] bg-brand px-4 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-50"
             >
               {isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
