@@ -1,18 +1,16 @@
-import { Camera, ChevronDown, ChevronUp, ImageIcon, Search, Upload } from 'lucide-react'
+import { Camera, ChevronDown, ChevronUp, ImageIcon, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
 import RecordPicker from '../../components/RecordPicker'
 import SlideOver from '../../components/SlideOver'
-import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
-import { useRemoteSuggestions } from '../../hooks/useRemoteSuggestions'
+import { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { api } from '../../lib/api'
 import { getErrorMessage } from '../../lib/errors'
-import { formatCpf, formatPlateInput, isValidCpf } from '../../lib/format'
+import { formatCpf, formatPlateInput } from '../../lib/format'
 import { formatKm, parseKm } from '../../lib/km'
-import { formatPersonName, handleNameChange } from '../../lib/nameCase'
 import { checkEntryKm, isKmRequired, VEHICLE_TYPE_FLEET } from './kmRules'
 import { openPrintWindow, printReceipt } from './printReceipt'
-import { PERSON_TYPE_LABELS, PERSON_TYPES } from './useAccessControlData'
+import { PERSON_TYPE_LABELS } from './useAccessControlData'
 
 const inputClass =
   'w-full rounded-lg border border-gray-200 px-2.5 py-2 text-[13px] text-ink focus:border-brand focus:outline-none disabled:bg-gray-100 disabled:text-muted'
@@ -31,46 +29,27 @@ function StepBadge({ number, active }) {
   )
 }
 
-// Debounce simples: só dispara a busca depois que o usuário para de digitar,
-// e só a partir de um tamanho mínimo (evita bater na API a cada tecla).
-function useLookup(rawValue, minLength, fetcher) {
-  const [state, setState] = useState({ status: 'idle', record: null })
-  // Guarda a função mais recente sem entrar nas deps do efeito — como é um
-  // arrow function literal recriado a cada render do componente pai, colocar
-  // `fetcher` nas deps faria o efeito rodar (e o setState disparar outro
-  // render) em loop infinito antes do debounce sequer completar.
-  const fetcherRef = useRef(fetcher)
-  fetcherRef.current = fetcher
+// Marca/modelo + nº de identificação (quando há) — mostra por que o veículo
+// apareceu quando a busca bateu pela identificação.
+const vehicleLabel = (vehicle) =>
+  [
+    [vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo',
+    vehicle.identificationCode && `Nº ${vehicle.identificationCode}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
-  useEffect(() => {
-    const cleaned = rawValue.replace(/[^a-zA-Z0-9]/g, '')
-    if (cleaned.length < minLength) {
-      setState({ status: 'idle', record: null })
-      return
-    }
-    setState({ status: 'loading', record: null })
-    const timer = setTimeout(async () => {
-      try {
-        const record = await fetcherRef.current(rawValue)
-        setState({ status: record ? 'found' : 'not-found', record })
-      } catch {
-        setState({ status: 'idle', record: null })
-      }
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [rawValue, minLength])
-
-  return state
-}
-
+/**
+ * Pessoa e veículo são sempre escolhidos entre os JÁ cadastrados (busca por
+ * nome/CPF e por placa/nº de identificação). Cadastrar é só em Cadastros >
+ * Pessoas / Veículos, onde o operador preenche todos os dados — antes esta
+ * tela criava cadastros incompletos na hora (só CPF/nome ou só placa).
+ */
 export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCreated }) {
-  const [cpf, setCpf] = useState('')
-  const [name, setName] = useState('')
-  const [personType, setPersonType] = useState(1)
-  const [plate, setPlate] = useState('')
-  const [brandModel, setBrandModel] = useState('')
+  const [person, setPerson] = useState(null)
+  const [vehicle, setVehicle] = useState(null)
   // null = o operador ainda não mexeu no campo: aí vale o último KM conhecido
-  // do veículo (derivado abaixo, sem efeito), que some sozinho se a placa mudar.
+  // do veículo (derivado abaixo, sem efeito), que some sozinho se o veículo mudar.
   const [kmEntryInput, setKmEntryInput] = useState(null)
   const [kmUnavailable, setKmUnavailable] = useState(false)
   const [lastKmInfo, setLastKmInfo] = useState(null)
@@ -92,13 +71,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const [vehiclePhotoError, setVehiclePhotoError] = useState(null)
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [cpfFocused, setCpfFocused] = useState(false)
-  const [nameFocused, setNameFocused] = useState(false)
-  const [plateFocused, setPlateFocused] = useState(false)
 
-  const cpfInputRef = useRef(null)
-  const nameInputRef = useRef(null)
-  const plateInputRef = useRef(null)
   const vehicleCameraInputRef = useRef(null)
   const vehicleFileInputRef = useRef(null)
   const blobUrlRef = useRef(null)
@@ -110,28 +83,16 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     [],
   )
 
-  const personLookup = useLookup(cpf, 11, async (value) => {
-    const { data } = await api.get('/people', { params: { cpf: value } })
-    return data.data[0] ?? null
-  })
-  const vehicleLookup = useLookup(plate, 7, async (value) => {
-    const { data } = await api.get('/vehicles', { params: { plate: value } })
-    return data.data[0] ?? null
-  })
-
-  const existingPerson = personLookup.status === 'found' ? personLookup.record : null
-  const existingVehicle = vehicleLookup.status === 'found' ? vehicleLookup.record : null
-
   // Último KM conhecido do veículo cadastrado (acessos + frota): pré-preenche a
   // entrada e serve de referência pro aviso "menor que o último registrado".
-  const existingVehicleId = existingVehicle?.id
+  const vehicleId = vehicle?.id
   useEffect(() => {
-    if (!existingVehicleId) return undefined
+    if (!vehicleId) return undefined
     let cancelled = false
     api
-      .get(`/access-logs/vehicles/${existingVehicleId}/last-km`)
+      .get(`/access-logs/vehicles/${vehicleId}/last-km`)
       .then(({ data }) => {
-        if (!cancelled) setLastKmInfo({ vehicleId: existingVehicleId, km: data.lastKm })
+        if (!cancelled) setLastKmInfo({ vehicleId, km: data.lastKm })
       })
       .catch(() => {
         // Só conveniência: sem o último KM o operador digita e o backend valida.
@@ -139,8 +100,8 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     return () => {
       cancelled = true
     }
-  }, [existingVehicleId])
-  const lastKm = lastKmInfo && lastKmInfo.vehicleId === existingVehicleId ? lastKmInfo.km : null
+  }, [vehicleId])
+  const lastKm = lastKmInfo && lastKmInfo.vehicleId === vehicleId ? lastKmInfo.km : null
   const kmEntry = kmEntryInput ?? (lastKm != null ? String(lastKm) : '')
 
   function resetKmFeedback() {
@@ -148,69 +109,6 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     setKmWarning(null)
     setKmWarningAck(false)
   }
-
-  // Sugestões buscadas no servidor (todas as pessoas/veículos da empresa, não
-  // uma amostra). Só sugere pessoa com CPF cadastrado — selecionar uma
-  // preenche o campo CPF com o valor completo, que aciona o `personLookup`
-  // normal pra confirmar/travar o registro; o formulário já exige CPF pra
-  // submeter de qualquer forma (ver `canSubmit` abaixo).
-  const cpfDigits = cpf.replace(/\D/g, '')
-  const { items: cpfSuggestions } = useRemoteSuggestions(cpfDigits, {
-    minLength: 3,
-    enabled: !existingPerson,
-    fetchItems: async (term) => {
-      const { data } = await api.get('/people', { params: { search: term, limit: 20 } })
-      // A busca por dígitos também casa telefone — aqui só interessa o CPF.
-      return data.data.filter((p) => p.cpf?.replace(/\D/g, '').includes(term)).slice(0, MAX_SUGGESTIONS)
-    },
-  })
-
-  const { items: nameSuggestions } = useRemoteSuggestions(name, {
-    minLength: 2,
-    enabled: !existingPerson,
-    fetchItems: async (term) => {
-      const { data } = await api.get('/people', { params: { search: term, limit: 20 } })
-      return data.data.filter((p) => p.cpf).slice(0, MAX_SUGGESTIONS)
-    },
-  })
-
-  // Só compara por placa (não marca/modelo): o campo já aplica a máscara de
-  // placa a cada tecla, então qualquer texto que não pareça placa (ex.:
-  // digitar "onix" pra buscar por modelo) chega aqui já deformado pela
-  // máscara ("ONI-X"). Manter o escopo só na placa evita esse bug.
-  const plateDigits = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-  const { items: vehicleSuggestions } = useRemoteSuggestions(plateDigits, {
-    minLength: 2,
-    enabled: !existingVehicle,
-    fetchItems: async (term) => {
-      const { data } = await api.get('/vehicles', { params: { search: term, limit: 20 } })
-      // Frota Própria tem tela exclusiva (Controle de Frota): nunca sugerida aqui.
-      return data.data
-        .filter((v) => v.vehicleType !== VEHICLE_TYPE_FLEET && v.licensePlate?.toUpperCase().includes(term))
-        .slice(0, MAX_SUGGESTIONS)
-    },
-  })
-
-  function selectPerson(person) {
-    setCpf(formatCpf(person.cpf))
-    setName(person.name)
-    setPersonType(person.personType)
-    cpfInputRef.current?.blur()
-    nameInputRef.current?.blur()
-  }
-
-  function selectVehicle(vehicle) {
-    setPlate(formatPlateInput(vehicle.licensePlate))
-    setBrandModel([vehicle.brand, vehicle.model].filter(Boolean).join(' '))
-    plateInputRef.current?.blur()
-  }
-
-  useEffect(() => {
-    if (existingPerson) {
-      setName(existingPerson.name)
-      setPersonType(existingPerson.personType)
-    }
-  }, [existingPerson])
 
   function handleVehiclePhotoChange(event) {
     const file = event.target.files?.[0]
@@ -234,47 +132,22 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     setVehiclePhotoPreviewUrl(url)
   }
 
-  useEffect(() => {
-    if (existingVehicle) {
-      setBrandModel([existingVehicle.brand, existingVehicle.model].filter(Boolean).join(' '))
-    }
-  }, [existingVehicle])
-
-  const hasVehicle = plate.trim().length > 0
+  const hasVehicle = !!vehicle
   // KM de entrada só é obrigatório p/ Funcionário (com veículo).
-  const kmRequired = isKmRequired({ personType, hasVehicle })
-  const personBlocked = existingPerson?.isBlocked
-  const vehicleBlocked = existingVehicle?.isBlocked
-  // Digitar a placa inteira de um veículo da frota também não vale: a busca
-  // acha o cadastro, mas a entrada dele é pelo Controle de Frota.
-  const vehicleIsFleet = existingVehicle?.vehicleType === VEHICLE_TYPE_FLEET
-  const newEntryCpfDigits = cpf.replace(/\D/g, '')
-  // Pessoa já cadastrada (existingPerson): o CPF vem travado com um valor já
-  // existente no banco, não precisa revalidar aqui. Pessoa nova: precisa
-  // passar no dígito verificador antes de tentar criar via POST /people.
-  const newEntryCpfIsValid = !!existingPerson || isValidCpf(newEntryCpfDigits)
+  const kmRequired = isKmRequired({ personType: person?.personType, hasVehicle })
+  const personBlocked = !!person?.isBlocked
+  const vehicleBlocked = !!vehicle?.isBlocked
   // Funcionário entrando não está visitando ninguém, está indo trabalhar —
   // só Visitante/Prestador (personType 1/2) exigem anfitrião.
-  const hostRequired = personType !== 3
+  const hostRequired = person?.personType !== 3
   const canSubmit =
-    newEntryCpfDigits.length >= 11 &&
-    newEntryCpfIsValid &&
-    name.trim() &&
-    destinationSectorId &&
-    (!hostRequired || visitedPerson) &&
-    !personBlocked &&
-    !vehicleBlocked &&
-    !vehicleIsFleet
+    !!person && !personBlocked && destinationSectorId && (!hostRequired || visitedPerson) && !vehicleBlocked
 
   async function handleSubmit(event) {
     event.preventDefault()
     setError(null)
     if (!canSubmit) {
-      setError(
-        newEntryCpfDigits.length >= 11 && !newEntryCpfIsValid
-          ? 'CPF inválido.'
-          : `Preencha CPF, nome, setor de destino${hostRequired ? ' e anfitrião' : ''} para continuar.`
-      )
+      setError(`Escolha a pessoa, o setor de destino${hostRequired ? ' e o anfitrião' : ''} para continuar.`)
       return
     }
 
@@ -299,25 +172,9 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
 
     setIsSubmitting(true)
     try {
-      let personId = existingPerson?.id
-      if (!personId) {
-        // Diferente da placa (normalizada no backend antes de gravar), o CPF
-        // de people é salvo exatamente como chega — manda só dígitos aqui pra
-        // não persistir a pontuação da máscara e quebrar a consistência com
-        // os registros existentes (sempre em dígitos crus).
-        const { data: newPerson } = await api.post('/people', { personType, name, cpf: cpf.replace(/\D/g, '') })
-        personId = newPerson.id
-      }
-
-      let vehicleId = existingVehicle?.id
-      if (!vehicleId && plate.trim()) {
-        const { data: newVehicle } = await api.post('/vehicles', { licensePlate: plate, model: brandModel || undefined })
-        vehicleId = newVehicle.id
-      }
-
       const { data: log } = await api.post('/access-logs', {
-        personId,
-        vehicleId: vehicleId || undefined,
+        personId: person.id,
+        vehicleId: vehicle?.id,
         destinationSectorId: Number(destinationSectorId),
         visitedPersonId: hostRequired && visitedPerson ? visitedPerson.id : undefined,
         entryGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
@@ -331,15 +188,11 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
         await api.post(`/access-logs/${log.id}/photo`, formData)
       }
 
-      // Não usa enrichLog(log, lookups) aqui: se a pessoa/veículo acabou de
-      // ser criado nesta mesma submissão, ainda não está no mapa de lookups
-      // (só recarregado depois, via onCreated -> refetch). Os dados do
-      // próprio formulário já são a fonte mais atual.
       printReceipt(
         {
-          personName: name,
-          personCpf: cpf,
-          vehiclePlate: plate.trim() || null,
+          personName: person.name,
+          personCpf: person.cpf,
+          vehiclePlate: vehicle?.licensePlate ?? null,
           visitedPersonName: hostRequired ? visitedPerson?.name : undefined,
           sectorName: lookups.sectorsById.get(Number(destinationSectorId))?.name,
           entryTime: log.entryTime,
@@ -362,7 +215,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   return (
     <SlideOver
       title="Nova Entrada"
-      subtitle="Cadastrar acesso de visitante, prestador ou colaborador"
+      subtitle="Acesso de visitante, prestador ou colaborador já cadastrado"
       onClose={onClose}
       footer={
         <>
@@ -392,105 +245,39 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
             <p className="text-[13px] font-bold text-ink">Identificação da Pessoa</p>
           </div>
 
-          <div className="relative flex flex-col gap-1">
-            <label className={labelClass}>CPF *</label>
-            <div className="flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 focus-within:border-brand">
-              <input
-                ref={cpfInputRef}
-                type="text"
-                value={cpf}
-                onChange={(event) => setCpf(formatCpf(event.target.value))}
-                onFocus={() => setCpfFocused(true)}
-                onBlur={() => setCpfFocused(false)}
-                placeholder="000.000.000-00"
-                className="w-full text-[13px] text-ink placeholder:text-gray-400 focus:outline-none"
-              />
-              <Search className="size-4 shrink-0 text-gray-400" strokeWidth={1.75} />
-            </div>
-            {cpfFocused && (
-              <SuggestionsDropdown
-                items={cpfSuggestions}
-                onSelect={selectPerson}
-                renderItem={(person) => (
-                  <>
-                    <span className="text-[13px] font-semibold text-ink">{person.name}</span>
-                    <span className="text-[11px] text-muted">
-                      {formatCpf(person.cpf)} · {PERSON_TYPE_LABELS[person.personType]}
-                    </span>
-                  </>
-                )}
-              />
-            )}
-            {personLookup.status === 'loading' && <p className="text-xs text-muted">Buscando...</p>}
-            {personLookup.status === 'found' && !personBlocked && (
-              <p className="text-xs text-green-700">Pessoa já cadastrada — dados preenchidos automaticamente.</p>
+          <div className="flex flex-col gap-1">
+            <label className={labelClass}>Nome ou CPF *</label>
+            <RecordPicker
+              value={person}
+              onChange={setPerson}
+              getLabel={(option) => option.name}
+              placeholder="Digite o nome ou o CPF..."
+              emptyText="Ninguém encontrado — cadastre em Cadastros > Pessoas."
+              inputClassName={inputClass}
+              fetchItems={async (term) => {
+                const { data } = await api.get('/people', { params: { search: term, limit: MAX_SUGGESTIONS } })
+                return data.data
+              }}
+              renderItem={(option) => (
+                <>
+                  <span className="text-[13px] font-semibold text-ink">{option.name}</span>
+                  <span className="text-[11px] text-muted">
+                    {option.cpf ? formatCpf(option.cpf) : 'Sem CPF'} · {PERSON_TYPE_LABELS[option.personType]}
+                    {option.isBlocked ? ' · Bloqueada' : ''}
+                  </span>
+                </>
+              )}
+            />
+            {person && !personBlocked && (
+              <p className="text-xs text-green-700">
+                {person.cpf ? `CPF ${formatCpf(person.cpf)}` : 'Sem CPF cadastrado'} · {PERSON_TYPE_LABELS[person.personType]}
+              </p>
             )}
             {personBlocked && (
               <p className="text-xs font-semibold text-red-600">
-                Pessoa bloqueada: {existingPerson.blockReason || 'sem motivo informado'}
+                Pessoa bloqueada: {person.blockReason || 'sem motivo informado'}
               </p>
             )}
-            {personLookup.status === 'not-found' && newEntryCpfIsValid && (
-              <p className="text-xs text-muted">CPF não encontrado — preencha os dados para cadastrar.</p>
-            )}
-            {/* useLookup só dispara com 11+ dígitos, então por aqui o CPF já
-                está completo — se não bateu o dígito verificador, é mais útil
-                avisar isso do que sugerir cadastrar uma pessoa nova com CPF
-                inválido. */}
-            {personLookup.status === 'not-found' && !newEntryCpfIsValid && (
-              <p className="text-xs text-red-600">CPF inválido.</p>
-            )}
-          </div>
-
-          <div className="relative flex flex-col gap-1">
-            <label className={labelClass}>Nome Completo *</label>
-            <input
-              ref={nameInputRef}
-              type="text"
-              required
-              value={name}
-              disabled={!!existingPerson}
-              onChange={(event) => handleNameChange(event, formatPersonName, setName)}
-              onFocus={() => setNameFocused(true)}
-              onBlur={() => setNameFocused(false)}
-              placeholder="Nome completo"
-              className={inputClass}
-            />
-            {nameFocused && (
-              <SuggestionsDropdown
-                items={nameSuggestions}
-                onSelect={selectPerson}
-                renderItem={(person) => (
-                  <>
-                    <span className="text-[13px] font-semibold text-ink">{person.name}</span>
-                    <span className="text-[11px] text-muted">
-                      {formatCpf(person.cpf)} · {PERSON_TYPE_LABELS[person.personType]}
-                    </span>
-                  </>
-                )}
-              />
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className={labelClass}>Tipo de Pessoa</label>
-            <div className="flex gap-2">
-              {PERSON_TYPES.map((type) => (
-                <button
-                  key={type.value}
-                  type="button"
-                  disabled={!!existingPerson}
-                  onClick={() => setPersonType(type.value)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed ${
-                    personType === type.value
-                      ? 'bg-brand-50 text-brand'
-                      : 'border border-gray-200 bg-white text-gray-500'
-                  }`}
-                >
-                  {type.label}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -516,62 +303,42 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
 
           {vehicleSectionOpen && (
             <>
-              <div className="flex gap-2">
-                <div className="relative flex flex-1 flex-col gap-1">
-                  <label className={labelClass}>Placa</label>
-                  <input
-                    ref={plateInputRef}
-                    type="text"
-                    value={plate}
-                    onChange={(event) => setPlate(formatPlateInput(event.target.value))}
-                    onFocus={() => setPlateFocused(true)}
-                    onBlur={() => setPlateFocused(false)}
-                    placeholder="ABC-1234"
-                    className={inputClass}
-                  />
-                  {plateFocused && (
-                    <SuggestionsDropdown
-                      items={vehicleSuggestions}
-                      onSelect={selectVehicle}
-                      renderItem={(vehicle) => (
-                        <>
-                          <span className="text-[13px] font-semibold text-ink">
-                            {formatPlateInput(vehicle.licensePlate)}
-                          </span>
-                          <span className="text-[11px] text-muted">
-                            {[vehicle.brand, vehicle.model].filter(Boolean).join(' ') || 'Sem marca/modelo'}
-                          </span>
-                        </>
-                      )}
-                    />
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>Placa ou Nº de Identificação</label>
+                <RecordPicker
+                  value={vehicle}
+                  onChange={(option) => {
+                    setVehicle(option)
+                    setKmEntryInput(null)
+                    resetKmFeedback()
+                  }}
+                  getLabel={(option) => `${formatPlateInput(option.licensePlate)} — ${vehicleLabel(option)}`}
+                  placeholder="Sem veículo — digite a placa ou o nº de identificação..."
+                  emptyText="Nenhum veículo encontrado — cadastre em Cadastros > Veículos."
+                  inputClassName={inputClass}
+                  fetchItems={async (term) => {
+                    const { data } = await api.get('/vehicles', { params: { search: term, limit: 20 } })
+                    // Frota Própria tem tela exclusiva (Controle de Frota): nunca sugerida aqui.
+                    return data.data.filter((v) => v.vehicleType !== VEHICLE_TYPE_FLEET).slice(0, MAX_SUGGESTIONS)
+                  }}
+                  renderItem={(option) => (
+                    <>
+                      <span className="text-[13px] font-semibold text-ink">{formatPlateInput(option.licensePlate)}</span>
+                      <span className="text-[11px] text-muted">
+                        {vehicleLabel(option)}
+                        {option.isBlocked ? ' · Bloqueado' : ''}
+                      </span>
+                    </>
                   )}
-                  {vehicleLookup.status === 'found' && !vehicleBlocked && !vehicleIsFleet && (
-                    <p className="text-xs text-green-700">Veículo já cadastrado.</p>
-                  )}
-                  {vehicleIsFleet && (
-                    <p className="text-xs font-semibold text-red-600">
-                      Veículo da frota própria — registre a saída e o retorno pelo Controle de Frota.
-                    </p>
-                  )}
-                  {vehicleBlocked && (
-                    <p className="text-xs font-semibold text-red-600">
-                      Veículo bloqueado: {existingVehicle.blockReason || 'sem motivo informado'}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col gap-1">
-                  <label className={labelClass}>Marca / Modelo</label>
-                  <input
-                    type="text"
-                    value={brandModel}
-                    disabled={!!existingVehicle}
-                    onChange={(event) => setBrandModel(event.target.value)}
-                    className={inputClass}
-                  />
-                </div>
+                />
+                {vehicleBlocked && (
+                  <p className="text-xs font-semibold text-red-600">
+                    Veículo bloqueado: {vehicle.blockReason || 'sem motivo informado'}
+                  </p>
+                )}
               </div>
 
-              {hasVehicle && !vehicleIsFleet && (
+              {hasVehicle && (
                 <div className="flex flex-col gap-1">
                   <label className={labelClass}>KM de Entrada{kmRequired ? ' *' : ''}</label>
                   <input
@@ -603,7 +370,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
                 </div>
               )}
 
-              {hasVehicle && !vehicleIsFleet && (
+              {hasVehicle && (
                 <div className="flex flex-col gap-1.5">
                   <label className={labelClass}>Foto do Veículo</label>
                   <div className="flex items-center gap-3">
