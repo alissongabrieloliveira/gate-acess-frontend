@@ -44,7 +44,7 @@ function Field({ label, value }) {
  * Motorista/Transporte só aparecem quando o registro realmente tem essa
  * informação, então os números seguintes se ajustam. Transporte: no guincho,
  * os veículos levados em cima; no veículo levado, o guincho (com link pro
- * registro dele); registros antigos, o guincho de terceiro.
+ * registro dele).
  */
 export default function FleetLogDetailPage() {
   const { id } = useParams()
@@ -149,13 +149,7 @@ export default function FleetLogDetailPage() {
                 <SectionHeader
                   number={transportSectionNumber}
                   icon={<Truck className="size-4 text-ink" strokeWidth={1.75} />}
-                  title={
-                    transport.label === 'Levando'
-                      ? 'Veículo Transportado'
-                      : transport.label === 'Guincho'
-                        ? 'Guincho'
-                        : 'Transportado por (Guincho)'
-                  }
+                  title={transport.label === 'Levando' ? 'Veículo Transportado' : 'Transportado por (Guincho)'}
                 />
                 {(detail.log.carriedLogs ?? []).map((carried) => (
                   <div key={carried.id} className="flex items-end gap-4">
@@ -198,13 +192,6 @@ export default function FleetLogDetailPage() {
                         </Link>
                       )}
                     </div>
-                  </div>
-                )}
-                {transport.label === 'Guincho' && (
-                  <div className="flex gap-4">
-                    <Field label="Placa" value={transport.value} />
-                    <Field label="Marca / Modelo" value="Veículo de terceiro (não cadastrado)" />
-                    <div className="flex-1" />
                   </div>
                 )}
               </div>

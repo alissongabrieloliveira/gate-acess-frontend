@@ -21,7 +21,6 @@ const inputClass = 'h-10 w-full rounded-[10px] border border-gray-200 px-3.5 tex
 const readOnlyClass = 'h-10 w-full cursor-not-allowed rounded-[10px] border border-gray-200 bg-gray-50 px-3.5 text-sm font-semibold text-muted'
 const labelClass = 'text-[11px] font-semibold uppercase text-subtle'
 const READONLY_TITLE = 'Somente administradores podem corrigir os dados do registro de frota'
-const TOW_PLATE_TITLE = 'Placa de guincho de terceiro não é editável — não é um veículo cadastrado'
 const TOW_TITLE = 'Troque o guincho no registro do próprio guincho'
 const SWAP_HINT = 'Escolha outro cadastro para trocar. Para corrigir nome/CPF/placa, use Cadastros.'
 // vehicles.vehicle_type: 2 = Frota Própria.
@@ -219,7 +218,7 @@ export default function FleetLogEditPage() {
     }
   }
 
-  const hasTowSection = !!(detail && (detail.transportingVehicle || detail.log.transportedByPlate))
+  const hasTowSection = !!detail?.transportingVehicle
   const carriedLogs = detail?.log.carriedLogs ?? []
   const hasCarriedSection = carriedLogs.length > 0 || !!detail?.log.carriedVehiclePlate
   // O veículo levado em cima do guincho não tem motorista.
@@ -357,29 +356,20 @@ export default function FleetLogEditPage() {
                 <SectionHeader
                   number={towSectionNumber}
                   icon={<Truck className="size-4 text-ink" strokeWidth={1.75} />}
-                  title={detail.log.transportLogId ? 'Transportado por (Guincho)' : 'Guincho'}
+                  title="Transportado por (Guincho)"
                 />
-                {detail.transportingVehicle ? (
-                  <div className="flex gap-4">
-                    <ReadOnlyField label="Placa" title={TOW_TITLE}>
-                      {formatPlateInput(detail.transportingVehicle.licensePlate)}
-                    </ReadOnlyField>
-                    <div className="flex flex-1 items-end pb-2">
-                      {detail.log.transportLogId && (
-                        <Link to={`/fleet/${detail.log.transportLogId}/edit`} className="text-[13px] font-semibold text-brand hover:underline">
-                          Editar registro do guincho
-                        </Link>
-                      )}
-                    </div>
+                <div className="flex gap-4">
+                  <ReadOnlyField label="Placa" title={TOW_TITLE}>
+                    {formatPlateInput(detail.transportingVehicle.licensePlate)}
+                  </ReadOnlyField>
+                  <div className="flex flex-1 items-end pb-2">
+                    {detail.log.transportLogId && (
+                      <Link to={`/fleet/${detail.log.transportLogId}/edit`} className="text-[13px] font-semibold text-brand hover:underline">
+                        Editar registro do guincho
+                      </Link>
+                    )}
                   </div>
-                ) : (
-                  <div className="flex gap-4">
-                    <ReadOnlyField label="Placa (veículo de terceiro)" title={TOW_PLATE_TITLE}>
-                      {formatPlateInput(detail.log.transportedByPlate)}
-                    </ReadOnlyField>
-                    <div className="flex-1" />
-                  </div>
-                )}
+                </div>
               </div>
             </>
           )}

@@ -25,10 +25,6 @@ describe('transportSummary', () => {
     })
   })
 
-  test('registro antigo com guincho de terceiro', () => {
-    expect(transportSummary({ transportedByPlate: 'QWE1234', carriedLogs: [] })).toEqual({ label: 'Guincho', value: 'QWE-1234' })
-  })
-
   test('sem transporte', () => {
     expect(transportSummary({ carriedLogs: [] })).toBeNull()
     expect(transportSummary(null)).toBeNull()

@@ -31,8 +31,7 @@ export function statusLabel(log) {
 /**
  * Relação de transporte do registro, pra exibição:
  * - guincho da frota levando veículos: "Levando" + placas (da frota ou de terceiro);
- * - veículo levado em cima do guincho: "Transportado por" + placa do guincho;
- * - registros antigos (guincho de terceiro, antes da mudança): "Guincho".
+ * - veículo levado em cima do guincho: "Transportado por" + placa do guincho.
  * `null` quando não há transporte. Recebe o log já com os relacionados do
  * backend (carriedLogs / transportingVehicle).
  */
@@ -48,9 +47,6 @@ export function transportSummary(log) {
   ]
   if (carriedPlates.length > 0) {
     return { label: 'Levando', value: carriedPlates.map(formatPlateInput).join(', ') }
-  }
-  if (log.transportedByPlate) {
-    return { label: 'Guincho', value: formatPlateInput(log.transportedByPlate) }
   }
   return null
 }
