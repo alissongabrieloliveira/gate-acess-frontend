@@ -1,6 +1,7 @@
 import { ChevronDown, Eye, FileDown, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { RetroactiveBadge } from '../../components/RetroactiveFields'
 import { STATUS_BADGES, statusBadge, statusLabel } from '../fleet/fleetStatus'
 import { displayKmDeparture, displayKmReturn } from '../fleet/kmRules'
 import { formatPlateInput } from '../../lib/format'
@@ -45,6 +46,7 @@ const EXPORT_COLUMNS = [
   { label: 'Retorno', value: (r) => formatDateTime(r.returnTime) },
   { label: 'KM de Retorno', value: (r) => displayKmReturn(r) },
   { label: 'Status', value: (r) => statusLabel(r) },
+  { label: 'Retroativo', value: (r) => (r.isRetroactive ? 'Sim' : '—') },
 ]
 
 export default function FleetLogsReportPage() {
@@ -201,10 +203,11 @@ export default function FleetLogsReportPage() {
                     <p className="w-[90px] text-center text-sm text-gray-700">{displayKmDeparture(log)}</p>
                     <p className="w-[110px] text-center text-sm text-subtle">{formatDateTime(log.returnTime)}</p>
                     <p className="w-[90px] text-center text-sm text-subtle">{displayKmReturn(log)}</p>
-                    <div className="flex w-[90px] items-center justify-center">
+                    <div className="flex w-[90px] flex-col items-center justify-center gap-1">
                       <span title={statusLabel(log)} className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>
                         {badge.label}
                       </span>
+                      {log.isRetroactive && <RetroactiveBadge />}
                     </div>
                     <div className="flex w-[80px] items-center justify-center">
                       <Link

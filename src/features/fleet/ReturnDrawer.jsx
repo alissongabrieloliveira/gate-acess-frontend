@@ -1,9 +1,12 @@
 import { AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
+import RetroactiveFields, { RetroactiveDateTime } from '../../components/RetroactiveFields'
 import SlideOver from '../../components/SlideOver'
 import { api } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
+import { checkRetroactive, dateTimeLocalToIso, isAdminUser, retroactiveBounds } from '../../lib/retroactive'
 import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
 import { checkReturnKm, formatKm, parseKm } from './kmRules'
 
@@ -48,6 +51,11 @@ export default function ReturnDrawer({
   const [kmWarningAck, setKmWarningAck] = useState(false)
   const [fuelLevelReturn, setFuelLevelReturn] = useState('')
   const [observation, setObservation] = useState('')
+  // Retorno retroativo: o veículo voltou antes e ninguém registrou na hora.
+  const isAdmin = isAdminUser(useAuth().user)
+  const [retroactive, setRetroactive] = useState(false)
+  const [returnTime, setReturnTime] = useState('')
+  const [retroactiveReason, setRetroactiveReason] = useState('')
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -65,6 +73,17 @@ export default function ReturnDrawer({
       setError('Nenhum portão disponível para registrar o retorno.')
       return
     }
+    if (retroactive) {
+      const retroError =
+        checkRetroactive({ start: returnTime, reason: retroactiveReason, isAdmin, startLabel: 'Data de retorno' }) ??
+        (new Date(dateTimeLocalToIso(returnTime)) < new Date(departureTime)
+          ? 'Data de retorno não pode ser anterior à saída.'
+          : null)
+      if (retroError) {
+        setError(retroError)
+        return
+      }
+    }
     if (kmCheck.error) {
       setKmError(kmCheck.error)
       return
@@ -81,6 +100,7 @@ export default function ReturnDrawer({
         isKmUnavailable: kmUnavailable || undefined,
         fuelLevelReturn: fuelLevelReturn ? Number(fuelLevelReturn) : undefined,
         observation: observation.trim() || undefined,
+        ...(retroactive && { returnTime: dateTimeLocalToIso(returnTime), retroactiveReason: retroactiveReason.trim() }),
       })
       onReturned()
     } catch (err) {
@@ -142,6 +162,21 @@ export default function ReturnDrawer({
 
       <div className="flex flex-col gap-3">
         <p className="text-[13px] font-semibold text-ink">Dados do Retorno</p>
+        <RetroactiveFields
+          title="Retorno em outro horário (lançamento retroativo)"
+          checked={retroactive}
+          onCheckedChange={setRetroactive}
+          reason={retroactiveReason}
+          onReasonChange={setRetroactiveReason}
+          isAdmin={isAdmin}
+        >
+          <RetroactiveDateTime
+            label="Data e hora do retorno"
+            value={returnTime}
+            onChange={setReturnTime}
+            bounds={retroactiveBounds(isAdmin)}
+          />
+        </RetroactiveFields>
         <div className="flex gap-4">
           <div className="flex flex-1 flex-col gap-1.5">
             <label className="text-[11px] font-semibold uppercase text-subtle">KM de Retorno *</label>

@@ -1,10 +1,13 @@
 import { AlertTriangle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
+import RetroactiveFields, { RetroactiveDateTime } from '../../components/RetroactiveFields'
 import SlideOver from '../../components/SlideOver'
 import { api } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { getErrorMessage } from '../../lib/errors'
 import { parseKm } from '../../lib/km'
+import { checkRetroactive, dateTimeLocalToIso, isAdminUser, retroactiveBounds } from '../../lib/retroactive'
 import { checkExitKm } from './kmRules'
 
 const STATUS_BADGES = {
@@ -59,6 +62,11 @@ export default function ExitDrawer({
   const [kmWarning, setKmWarning] = useState(null)
   const [kmWarningAck, setKmWarningAck] = useState(false)
   const [observation, setObservation] = useState('')
+  // Saída retroativa: a pessoa saiu antes e ninguém registrou na hora.
+  const isAdmin = isAdminUser(useAuth().user)
+  const [retroactive, setRetroactive] = useState(false)
+  const [exitTime, setExitTime] = useState('')
+  const [retroactiveReason, setRetroactiveReason] = useState('')
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const errorRef = useRef(null)
@@ -81,6 +89,17 @@ export default function ExitDrawer({
       setError('Nenhum portão disponível para registrar a saída.')
       return
     }
+    if (retroactive) {
+      const retroError =
+        checkRetroactive({ start: exitTime, reason: retroactiveReason, isAdmin, startLabel: 'Data de saída' }) ??
+        (new Date(dateTimeLocalToIso(exitTime)) < new Date(entryTime)
+          ? 'Data de saída não pode ser anterior à entrada.'
+          : null)
+      if (retroError) {
+        setError(retroError)
+        return
+      }
+    }
     if (hasVehicle) {
       const kmCheck = checkExitKm({ raw: kmExit, unavailable: kmUnavailable, required: kmRequired, kmEntry })
       if (kmCheck.error) {
@@ -99,6 +118,7 @@ export default function ExitDrawer({
         kmExit: hasVehicle && !kmUnavailable ? (parseKm(kmExit) ?? undefined) : undefined,
         isKmUnavailable: (hasVehicle && kmUnavailable) || undefined,
         observation: observation.trim() || undefined,
+        ...(retroactive && { exitTime: dateTimeLocalToIso(exitTime), retroactiveReason: retroactiveReason.trim() }),
       })
       onExited()
     } catch (err) {
@@ -162,6 +182,21 @@ export default function ExitDrawer({
 
       <div className="flex flex-col gap-3">
         <p className="text-[13px] font-semibold text-ink">Dados da Saída</p>
+        <RetroactiveFields
+          title="Saída em outro horário (lançamento retroativo)"
+          checked={retroactive}
+          onCheckedChange={setRetroactive}
+          reason={retroactiveReason}
+          onReasonChange={setRetroactiveReason}
+          isAdmin={isAdmin}
+        >
+          <RetroactiveDateTime
+            label="Data e hora da saída"
+            value={exitTime}
+            onChange={setExitTime}
+            bounds={retroactiveBounds(isAdmin)}
+          />
+        </RetroactiveFields>
         {hasVehicle && (
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-semibold uppercase text-subtle">

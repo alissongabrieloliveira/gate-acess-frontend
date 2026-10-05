@@ -1,11 +1,14 @@
 import { ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { useRef, useState } from 'react'
 import RecordPicker from '../../components/RecordPicker'
+import RetroactiveFields, { RetroactiveDateTime } from '../../components/RetroactiveFields'
 import SlideOver from '../../components/SlideOver'
 import SuggestionsDropdown, { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { formatCityLabel, searchCities } from '../../hooks/useCitySearch'
 import { useRemoteSuggestions } from '../../hooks/useRemoteSuggestions'
 import { api } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
+import { checkRetroactive, dateTimeLocalToIso, isAdminUser, retroactiveBounds } from '../../lib/retroactive'
 import { getErrorMessage } from '../../lib/errors'
 import { formatPlateInput } from '../../lib/format'
 import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
@@ -119,6 +122,14 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
   const [fuelLevelDeparture, setFuelLevelDeparture] = useState('')
   const [observation, setObservation] = useState('')
   const [plateFocused, setPlateFocused] = useState(false)
+  // Lançamento retroativo: o veículo saiu (e talvez já voltou) sem registro na hora.
+  const isAdmin = isAdminUser(useAuth().user)
+  const [retroactive, setRetroactive] = useState(false)
+  const [departureTime, setDepartureTime] = useState('')
+  const [alreadyReturned, setAlreadyReturned] = useState(false)
+  const [returnTime, setReturnTime] = useState('')
+  const [kmReturn, setKmReturn] = useState('')
+  const [retroactiveReason, setRetroactiveReason] = useState('')
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -178,6 +189,8 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
 
   const vehicleBlocked = selectedVehicle?.isBlocked
   const canSubmit = !!selectedVehicle && !vehicleBlocked && !!driver && !!destinationCity
+  // Vendido/transferido não volta: aí não existe retorno pra lançar junto.
+  const returnedNow = retroactive && alreadyReturned && !noReturnReason
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -194,7 +207,23 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
       setError('Informe o destino (cidade).')
       return
     }
-    const kmCheck = checkDepartureKm({ raw: kmDeparture, unavailable: kmUnavailable, lastKm })
+    if (retroactive) {
+      const retroError = checkRetroactive({
+        start: departureTime,
+        end: returnTime,
+        hasEnd: returnedNow,
+        reason: retroactiveReason,
+        isAdmin,
+        startLabel: 'Data de saída',
+        endLabel: 'Data de retorno',
+      })
+      if (retroError) {
+        setError(retroError)
+        return
+      }
+    }
+    // O "último KM" é o mais recente: não serve de referência pra uma saída antiga.
+    const kmCheck = checkDepartureKm({ raw: kmDeparture, unavailable: kmUnavailable, lastKm: retroactive ? null : lastKm })
     if (kmCheck.error) {
       setKmError(kmCheck.error)
       return
@@ -221,6 +250,15 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
         isKmUnavailable: kmUnavailable || undefined,
         fuelLevelDeparture: fuelLevelDeparture ? Number(fuelLevelDeparture) : undefined,
         observation: observation.trim() || undefined,
+        ...(retroactive && {
+          departureTime: dateTimeLocalToIso(departureTime),
+          retroactiveReason: retroactiveReason.trim(),
+        }),
+        ...(returnedNow && {
+          returnTime: dateTimeLocalToIso(returnTime),
+          returnGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
+          kmReturn: kmUnavailable ? undefined : parseKm(kmReturn),
+        }),
       })
       onCreated()
     } catch (err) {
@@ -256,6 +294,56 @@ export default function DepartureDrawer({ lookups, defaultGateId, onClose, onCre
       }
     >
       <form id="departure-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <RetroactiveFields
+          title="Lançamento retroativo (não foi registrado na hora)"
+          checked={retroactive}
+          onCheckedChange={setRetroactive}
+          reason={retroactiveReason}
+          onReasonChange={setRetroactiveReason}
+          isAdmin={isAdmin}
+        >
+          <RetroactiveDateTime
+            label="Data e hora da saída"
+            value={departureTime}
+            onChange={setDepartureTime}
+            bounds={retroactiveBounds(isAdmin)}
+          />
+          {!noReturnReason && (
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={alreadyReturned}
+                onChange={(event) => setAlreadyReturned(event.target.checked)}
+                className="size-4 accent-brand"
+              />
+              O veículo já voltou (lançar o retorno junto)
+            </label>
+          )}
+          {returnedNow && (
+            <>
+              <RetroactiveDateTime
+                label="Data e hora do retorno"
+                value={returnTime}
+                onChange={setReturnTime}
+                bounds={retroactiveBounds(isAdmin)}
+              />
+              <div className="flex flex-col gap-1">
+                <label className={labelClass}>KM de Retorno{kmUnavailable ? '' : ' *'}</label>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={kmReturn}
+                  disabled={kmUnavailable}
+                  onChange={(event) => setKmReturn(event.target.value)}
+                  placeholder="Informe o KM"
+                  className={inputClass}
+                />
+              </div>
+            </>
+          )}
+        </RetroactiveFields>
+
         {/* 1. Veículo da Frota */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-1.5">

@@ -1,6 +1,7 @@
 import { Eye, LogIn, Plus, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { RetroactiveBadge } from '../../components/RetroactiveFields'
 import TopBar from '../../components/TopBar'
 import { formatPlateInput } from '../../lib/format'
 import GateDirectionButtons from '../gate-control/GateDirectionButtons'
@@ -176,10 +177,11 @@ export default function FleetPage() {
                     <p className="w-[120px] text-center text-sm text-subtle">
                       {log.returnTime ? formatDateTime(log.returnTime) : '----'}
                     </p>
-                    <div className="flex w-[100px] items-center justify-center">
+                    <div className="flex w-[100px] flex-col items-center justify-center gap-1">
                       <span title={statusLabel(log)} className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>
                         {badge.label}
                       </span>
+                      {log.isRetroactive && <RetroactiveBadge />}
                     </div>
                     <div className="flex w-[90px] items-center justify-center gap-2">
                       <Link

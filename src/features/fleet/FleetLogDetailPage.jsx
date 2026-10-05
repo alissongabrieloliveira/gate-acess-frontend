@@ -1,6 +1,7 @@
 import { ArrowLeft, Car, Clock, MapPin, Truck, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { RetroactiveDetails } from '../../components/RetroactiveFields'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import { formatPlateInput } from '../../lib/format'
@@ -244,6 +245,12 @@ export default function FleetLogDetailPage() {
                 </span>
               </div>
             </div>
+            <RetroactiveDetails
+              items={[
+                { label: 'Saída', reason: detail.log.departureRetroactiveReason, recordedAt: detail.log.createdAt },
+                { label: 'Retorno', reason: detail.log.returnRetroactiveReason, recordedAt: detail.log.returnRecordedAt, masculine: true },
+              ]}
+            />
           </div>
 
           <div className="mt-auto flex items-center justify-end gap-3 pt-2">

@@ -1,6 +1,7 @@
 import { ChevronDown, Eye, FileDown, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { RetroactiveBadge } from '../../components/RetroactiveFields'
 import { formatCpf, formatPlateInput } from '../../lib/format'
 import { displayKmEntry, displayKmExit } from '../access-control/kmRules'
 import { openReportPrintWindow, writeReportPdf } from './exportReportPdf'
@@ -51,6 +52,7 @@ const EXPORT_COLUMNS = [
   { label: 'Saída', value: (r) => formatDateTime(r.exitTime) },
   { label: 'KM de Saída', value: (r) => displayKmExit(r) },
   { label: 'Status', value: (r) => (r.status === 'ACTIVE' ? 'Ativo' : r.status === 'FINISHED' ? 'Finalizado' : r.status) },
+  { label: 'Retroativo', value: (r) => (r.isRetroactive ? 'Sim' : '—') },
 ]
 
 export default function AccessLogsReportPage() {
@@ -208,8 +210,9 @@ export default function AccessLogsReportPage() {
                     <p className="w-[90px] text-center text-sm text-gray-700">{displayKmEntry(log)}</p>
                     <p className="w-[110px] text-center text-sm text-subtle">{formatDateTime(log.exitTime)}</p>
                     <p className="w-[90px] text-center text-sm text-subtle">{displayKmExit(log)}</p>
-                    <div className="flex w-[90px] items-center justify-center">
+                    <div className="flex w-[90px] flex-col items-center justify-center gap-1">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
+                      {log.isRetroactive && <RetroactiveBadge />}
                     </div>
                     <div className="flex w-[80px] items-center justify-center">
                       <Link

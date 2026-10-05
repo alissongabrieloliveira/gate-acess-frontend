@@ -2,9 +2,12 @@ import { Camera, ChevronDown, ChevronUp, ImageIcon, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { KmFeedbackMessage, KmUnavailableCheckbox } from '../../components/KmFeedback'
 import RecordPicker from '../../components/RecordPicker'
+import RetroactiveFields, { RetroactiveDateTime } from '../../components/RetroactiveFields'
 import SlideOver from '../../components/SlideOver'
 import { MAX_SUGGESTIONS } from '../../components/SuggestionsDropdown'
 import { api } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
+import { checkRetroactive, dateTimeLocalToIso, isAdminUser, retroactiveBounds } from '../../lib/retroactive'
 import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPlateInput } from '../../lib/format'
 import { formatKm, parseKm } from '../../lib/km'
@@ -75,6 +78,14 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   // Quem está dentro agora: avisa na hora de escolher se a pessoa ou a placa
   // já tem entrada em aberto (a API recusa de qualquer jeito).
   const [activeLogs, setActiveLogs] = useState([])
+  // Lançamento retroativo: a pessoa entrou (e talvez já saiu) sem registro na hora.
+  const isAdmin = isAdminUser(useAuth().user)
+  const [retroactive, setRetroactive] = useState(false)
+  const [entryTime, setEntryTime] = useState('')
+  const [alreadyLeft, setAlreadyLeft] = useState(false)
+  const [exitTime, setExitTime] = useState('')
+  const [kmExit, setKmExit] = useState('')
+  const [retroactiveReason, setRetroactiveReason] = useState('')
 
   const vehicleCameraInputRef = useRef(null)
   const vehicleFileInputRef = useRef(null)
@@ -156,7 +167,10 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const kmRequired = isKmRequired({ personType: person?.personType, hasVehicle })
   const personBlocked = !!person?.isBlocked
   const vehicleBlocked = !!vehicle?.isBlocked
-  const inside = openEntryConflicts(activeLogs, { personId: person?.id, vehicleId: vehicle?.id })
+  // No retroativo quem está dentro AGORA pode ter passagem anterior: a API
+  // confere a sobreposição do período informado.
+  const inside = retroactive ? {} : openEntryConflicts(activeLogs, { personId: person?.id, vehicleId: vehicle?.id })
+  const finishedNow = retroactive && alreadyLeft
   // Funcionário entrando não está visitando ninguém, está indo trabalhar —
   // só Visitante/Prestador (personType 1/2) exigem anfitrião.
   const hostRequired = person?.personType !== 3
@@ -176,11 +190,32 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
       setError(`Escolha a pessoa, o setor de destino${hostRequired ? ' e o anfitrião' : ''} para continuar.`)
       return
     }
+    if (retroactive) {
+      const retroError = checkRetroactive({
+        start: entryTime,
+        end: exitTime,
+        hasEnd: alreadyLeft,
+        reason: retroactiveReason,
+        isAdmin,
+        startLabel: 'Data de entrada',
+        endLabel: 'Data de saída',
+      })
+      if (retroError) {
+        setError(retroError)
+        return
+      }
+    }
 
     // Antes de abrir a janela de impressão: se o KM barrar, não deixa uma
     // janela em branco órfã.
     if (hasVehicle) {
-      const kmCheck = checkEntryKm({ raw: kmEntry, unavailable: kmUnavailable, required: kmRequired, lastKm })
+      // O "último KM" é o mais recente: não serve de referência pra uma entrada antiga.
+      const kmCheck = checkEntryKm({
+        raw: kmEntry,
+        unavailable: kmUnavailable,
+        required: kmRequired,
+        lastKm: retroactive ? null : lastKm,
+      })
       if (kmCheck.error) {
         setKmError(kmCheck.error)
         return
@@ -194,7 +229,8 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     // Precisa abrir a janela AGORA, ainda síncrono dentro do handler do clique
     // — se esperar os POSTs abaixo terminarem, o navegador não reconhece mais
     // window.open() como resultado direto do gesto do usuário e bloqueia como pop-up.
-    const printWindow = openPrintWindow()
+    // Passagem já encerrada (retroativa com saída) não gera ticket.
+    const printWindow = finishedNow ? null : openPrintWindow()
 
     setIsSubmitting(true)
     try {
@@ -206,6 +242,15 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
         entryGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
         kmEntry: hasVehicle && !kmUnavailable ? (parseKm(kmEntry) ?? undefined) : undefined,
         isKmUnavailable: (hasVehicle && kmUnavailable) || undefined,
+        ...(retroactive && {
+          entryTime: dateTimeLocalToIso(entryTime),
+          retroactiveReason: retroactiveReason.trim(),
+        }),
+        ...(finishedNow && {
+          exitTime: dateTimeLocalToIso(exitTime),
+          exitGateId: Number(defaultGateId || lookups.gatesList[0]?.id),
+          kmExit: hasVehicle && !kmUnavailable ? (parseKm(kmExit) ?? undefined) : undefined,
+        }),
       })
 
       if (vehiclePhotoFile) {
@@ -214,21 +259,23 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
         await api.post(`/access-logs/${log.id}/photo`, formData)
       }
 
-      printReceipt(
-        {
-          personName: person.name,
-          personCpf: person.cpf,
-          vehiclePlate: vehicle?.licensePlate ?? null,
-          visitedPersonName: hostRequired ? visitedPerson?.name : undefined,
-          sectorName: lookups.sectorsById.get(Number(destinationSectorId))?.name,
-          entryTime: log.entryTime,
-          entryGateName: lookups.gatesById.get(log.entryGateId)?.name,
-          exitTime: null,
-          exitGateName: null,
-          receiptCode: log.receiptCode,
-        },
-        printWindow,
-      )
+      if (!finishedNow) {
+        printReceipt(
+          {
+            personName: person.name,
+            personCpf: person.cpf,
+            vehiclePlate: vehicle?.licensePlate ?? null,
+            visitedPersonName: hostRequired ? visitedPerson?.name : undefined,
+            sectorName: lookups.sectorsById.get(Number(destinationSectorId))?.name,
+            entryTime: log.entryTime,
+            entryGateName: lookups.gatesById.get(log.entryGateId)?.name,
+            exitTime: null,
+            exitGateName: null,
+            receiptCode: log.receiptCode,
+          },
+          printWindow,
+        )
+      }
       onCreated()
     } catch (err) {
       printWindow?.close()
@@ -258,12 +305,62 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
             disabled={isSubmitting || !canSubmit}
             className="flex-1 rounded-lg bg-brand px-4 py-2.5 text-[13px] font-semibold text-brand-50 hover:opacity-90 disabled:opacity-50"
           >
-            {isSubmitting ? 'Salvando...' : 'Salvar e Gerar Ticket'}
+            {isSubmitting ? 'Salvando...' : finishedNow ? 'Salvar Registro' : 'Salvar e Gerar Ticket'}
           </button>
         </>
       }
     >
       <form id="new-entry-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <RetroactiveFields
+          title="Lançamento retroativo (não foi registrado na hora)"
+          checked={retroactive}
+          onCheckedChange={setRetroactive}
+          reason={retroactiveReason}
+          onReasonChange={setRetroactiveReason}
+          isAdmin={isAdmin}
+        >
+          <RetroactiveDateTime
+            label="Data e hora da entrada"
+            value={entryTime}
+            onChange={setEntryTime}
+            bounds={retroactiveBounds(isAdmin)}
+          />
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-700">
+            <input
+              type="checkbox"
+              checked={alreadyLeft}
+              onChange={(event) => setAlreadyLeft(event.target.checked)}
+              className="size-4 accent-brand"
+            />
+            A pessoa já saiu (lançar a saída junto)
+          </label>
+          {alreadyLeft && (
+            <>
+              <RetroactiveDateTime
+                label="Data e hora da saída"
+                value={exitTime}
+                onChange={setExitTime}
+                bounds={retroactiveBounds(isAdmin)}
+              />
+              {hasVehicle && (
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>KM de Saída{kmRequired && !kmUnavailable ? ' *' : ''}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    inputMode="numeric"
+                    value={kmExit}
+                    disabled={kmUnavailable}
+                    onChange={(event) => setKmExit(event.target.value)}
+                    placeholder={kmEntry ? `Mesmo da entrada: ${kmEntry}` : 'Informe o KM'}
+                    className={inputClass}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </RetroactiveFields>
+
         {/* 1. Identificação da Pessoa */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-1.5">

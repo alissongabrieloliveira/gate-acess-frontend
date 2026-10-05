@@ -1,6 +1,7 @@
 import { Eye, LogOut, Plus, Printer, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { RetroactiveBadge } from '../../components/RetroactiveFields'
 import TopBar from '../../components/TopBar'
 import { formatCpf, formatPlateInput } from '../../lib/format'
 import GateDirectionButtons from '../gate-control/GateDirectionButtons'
@@ -170,8 +171,9 @@ export default function AccessControlPage() {
                     <p className="w-[160px] truncate text-center text-sm text-gray-700">{log.visitedPersonName ?? '—'}</p>
                     <p className="w-[110px] text-center text-sm text-gray-700">{formatDateTime(log.entryTime)}</p>
                     <p className="w-[110px] text-center text-sm text-subtle">{log.exitTime ? formatDateTime(log.exitTime) : '----'}</p>
-                    <div className="flex w-[100px] items-center justify-center">
+                    <div className="flex w-[100px] flex-col items-center justify-center gap-1">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>{badge.label}</span>
+                      {log.isRetroactive && <RetroactiveBadge />}
                     </div>
                     <div className="flex w-[120px] items-center justify-center gap-2">
                       <Link

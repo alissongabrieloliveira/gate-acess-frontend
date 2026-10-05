@@ -1,6 +1,7 @@
 import { ArrowLeft, Camera, Car, Clock, MapPin, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { RetroactiveDetails } from '../../components/RetroactiveFields'
 import { TopBarControls } from '../../components/TopBar'
 import { api } from '../../lib/api'
 import ExitDrawer from './ExitDrawer'
@@ -215,6 +216,12 @@ export default function AccessLogDetailPage() {
               </div>
               <div className="flex-1" />
             </div>
+            <RetroactiveDetails
+              items={[
+                { label: 'Entrada', reason: detail.log.entryRetroactiveReason, recordedAt: detail.log.createdAt },
+                { label: 'Saída', reason: detail.log.exitRetroactiveReason, recordedAt: detail.log.exitRecordedAt },
+              ]}
+            />
           </div>
 
           <div className="mt-auto flex items-center justify-end gap-3 pt-2">
