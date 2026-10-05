@@ -9,6 +9,7 @@ import { getErrorMessage } from '../../lib/errors'
 import { formatCpf, formatPlateInput } from '../../lib/format'
 import { formatKm, parseKm } from '../../lib/km'
 import { checkEntryKm, isKmRequired, VEHICLE_TYPE_FLEET } from './kmRules'
+import { openEntryConflicts } from './openEntries'
 import { openPrintWindow, printReceipt } from './printReceipt'
 import { PERSON_TYPE_LABELS } from './useAccessControlData'
 
@@ -71,6 +72,9 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const [vehiclePhotoError, setVehiclePhotoError] = useState(null)
   const [error, setError] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Quem está dentro agora: avisa na hora de escolher se a pessoa ou a placa
+  // já tem entrada em aberto (a API recusa de qualquer jeito).
+  const [activeLogs, setActiveLogs] = useState([])
 
   const vehicleCameraInputRef = useRef(null)
   const vehicleFileInputRef = useRef(null)
@@ -82,6 +86,21 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
     },
     [],
   )
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .get('/access-logs/active')
+      .then(({ data }) => {
+        if (!cancelled) setActiveLogs(data.data)
+      })
+      .catch(() => {
+        // Só o aviso antecipado: sem a lista, a API ainda recusa a entrada duplicada.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // Último KM conhecido do veículo cadastrado (acessos + frota): pré-preenche a
   // entrada e serve de referência pro aviso "menor que o último registrado".
@@ -137,11 +156,18 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
   const kmRequired = isKmRequired({ personType: person?.personType, hasVehicle })
   const personBlocked = !!person?.isBlocked
   const vehicleBlocked = !!vehicle?.isBlocked
+  const inside = openEntryConflicts(activeLogs, { personId: person?.id, vehicleId: vehicle?.id })
   // Funcionário entrando não está visitando ninguém, está indo trabalhar —
   // só Visitante/Prestador (personType 1/2) exigem anfitrião.
   const hostRequired = person?.personType !== 3
   const canSubmit =
-    !!person && !personBlocked && destinationSectorId && (!hostRequired || visitedPerson) && !vehicleBlocked
+    !!person &&
+    !personBlocked &&
+    destinationSectorId &&
+    (!hostRequired || visitedPerson) &&
+    !vehicleBlocked &&
+    !inside.person &&
+    !inside.vehicle
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -268,7 +294,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
                 </>
               )}
             />
-            {person && !personBlocked && (
+            {person && !personBlocked && !inside.person && (
               <p className="text-xs text-green-700">
                 {person.cpf ? `CPF ${formatCpf(person.cpf)}` : 'Sem CPF cadastrado'} · {PERSON_TYPE_LABELS[person.personType]}
               </p>
@@ -278,6 +304,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
                 Pessoa bloqueada: {person.blockReason || 'sem motivo informado'}
               </p>
             )}
+            {inside.person && <p className="text-xs font-semibold text-red-600">{inside.person}</p>}
           </div>
         </div>
 
@@ -336,6 +363,7 @@ export default function NewEntryDrawer({ lookups, defaultGateId, onClose, onCrea
                     Veículo bloqueado: {vehicle.blockReason || 'sem motivo informado'}
                   </p>
                 )}
+                {inside.vehicle && <p className="text-xs font-semibold text-red-600">{inside.vehicle}</p>}
               </div>
 
               {hasVehicle && (
