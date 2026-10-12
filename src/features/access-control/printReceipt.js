@@ -1,4 +1,4 @@
-import { api } from '../../lib/api'
+import { getCompany, getCompanyLogoDataUrl, printWhenReady } from '../../lib/company'
 import { formatPhone, formatPlateInput, maskCpf } from '../../lib/format'
 
 function formatDateTime(value) {
@@ -8,23 +8,6 @@ function formatDateTime(value) {
 
 function formatDate(value) {
   return new Date(value).toLocaleDateString('pt-BR')
-}
-
-// Dados da empresa mudam raramente durante uma sessão — evita um GET
-// /companies/me a cada recibo impresso (o operador pode imprimir vários
-// seguidos). Só uma vez por carregamento de página.
-let cachedCompany = null
-async function getCompany() {
-  if (cachedCompany) return cachedCompany
-  try {
-    const { data } = await api.get('/companies/me')
-    cachedCompany = data
-    return data
-  } catch {
-    // Sem empresa carregada, o recibo cai pro nome genérico (ver template
-    // abaixo) em vez de travar a impressão por causa disso.
-    return null
-  }
 }
 
 function escapeHtml(value) {
@@ -78,7 +61,7 @@ export async function printReceipt(log, existingWindow) {
   const printWindow = existingWindow ?? window.open('', '_blank', 'width=800,height=700')
   if (!printWindow) return
 
-  const company = await getCompany()
+  const [company, logo] = await Promise.all([getCompany(), getCompanyLogoDataUrl()])
   const companyName = company?.trade_name || company?.corporate_name || 'Empresa'
 
   printWindow.document.write(`
@@ -118,7 +101,8 @@ export async function printReceipt(log, existingWindow) {
           .cell--tall { min-height: 13mm; }
           .field-label { font-weight: 600; }
           .field-value { margin-left: 4px; }
-          .welcome-row .cell { padding: 3mm 3mm 2.5mm; }
+          .welcome-row .cell { padding: 3mm 3mm 2.5mm; display: flex; align-items: center; }
+          .logo { max-height: 12mm; max-width: 40mm; object-fit: contain; margin-right: 4mm; }
           .welcome-label { font-size: 13px; }
           .company-name { font-size: 20px; font-weight: 700; margin-left: 6px; }
           .section-row .cell {
@@ -149,7 +133,8 @@ export async function printReceipt(log, existingWindow) {
           <div class="form">
             <div class="row welcome-row">
               <div class="cell">
-                <span class="welcome-label">Bem vindo à</span><span class="company-name">${companyName}</span>
+                ${logo ? `<img class="logo" src="${logo}" alt="" />` : ''}
+                <span class="welcome-label">Bem vindo à</span><span class="company-name">${escapeHtml(companyName)}</span>
               </div>
             </div>
             <div class="row">
@@ -200,8 +185,7 @@ export async function printReceipt(log, existingWindow) {
     </html>
   `)
   printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
+  printWhenReady(printWindow)
 }
 
 // Reserva a janela de impressão de forma síncrona, no mesmo tick do clique

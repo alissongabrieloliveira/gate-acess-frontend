@@ -1,3 +1,4 @@
+import { getCompanyLogoDataUrl } from '../../lib/company'
 import {
   documentHeader,
   DOCUMENT_STYLES,
@@ -39,7 +40,7 @@ const ACTIVITY_COLUMNS = [
   { label: 'Última', value: (a) => formatDateTime(a.lastAt) },
 ]
 
-export function buildUserDataHtml(data) {
+export function buildUserDataHtml(data, logo = null) {
   const { user, sessions } = data
   const userTable = keyValueTable([
     ['Nome', user.name],
@@ -66,7 +67,7 @@ export function buildUserDataHtml(data) {
         <style>${DOCUMENT_STYLES}</style>
       </head>
       <body>
-        ${documentHeader('Relatório de dados pessoais do usuário do sistema', data)}
+        ${documentHeader('Relatório de dados pessoais do usuário do sistema', data, logo)}
         <p class="note">A senha nunca é armazenada de forma legível e não faz parte deste relatório.</p>
 
         <h2>1. Dados cadastrais</h2>
@@ -98,6 +99,7 @@ export function buildUserDataHtml(data) {
   `
 }
 
-export function writeUserDataExport(printWindow, data) {
-  writeExportDocument(printWindow, buildUserDataHtml(data))
+export async function writeUserDataExport(printWindow, data) {
+  const logo = await getCompanyLogoDataUrl()
+  writeExportDocument(printWindow, buildUserDataHtml(data, logo))
 }

@@ -77,7 +77,7 @@ export default function PeoplePage() {
     setExportingId(person.id)
     try {
       const { data } = await api.get(`/people/${person.id}/data-export`)
-      writePersonDataExport(printWindow, data)
+      await writePersonDataExport(printWindow, data)
     } catch (err) {
       printWindow.close()
       setActionError(getErrorMessage(err, 'Não foi possível exportar os dados da pessoa.'))

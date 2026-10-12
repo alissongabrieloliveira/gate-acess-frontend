@@ -117,7 +117,7 @@ export default function UsersPage() {
     setExportingId(targetUser.id)
     try {
       const { data } = await api.get(`/users/${targetUser.id}/data-export`)
-      writeUserDataExport(printWindow, data)
+      await writeUserDataExport(printWindow, data)
     } catch (err) {
       printWindow.close()
       setActionError(getErrorMessage(err, 'Não foi possível exportar os dados do usuário.'))

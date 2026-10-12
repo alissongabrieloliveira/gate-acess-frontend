@@ -1,3 +1,4 @@
+import { getCompanyLogoDataUrl } from '../../lib/company'
 import {
   documentHeader,
   DOCUMENT_STYLES,
@@ -54,7 +55,7 @@ const FLEET_COLUMNS = [
   { label: 'Situação', value: (l) => STATUS_LABELS[l.status] ?? l.status },
 ]
 
-export function buildPersonDataHtml(data) {
+export function buildPersonDataHtml(data, logo = null) {
   const { person } = data
   const personTable = keyValueTable([
     ['Nome', person.name],
@@ -76,7 +77,7 @@ export function buildPersonDataHtml(data) {
         <style>${DOCUMENT_STYLES}</style>
       </head>
       <body>
-        ${documentHeader('Relatório de dados pessoais do titular', data)}
+        ${documentHeader('Relatório de dados pessoais do titular', data, logo)}
 
         <h2>1. Dados cadastrais</h2>
         <div class="person">
@@ -101,6 +102,7 @@ export function buildPersonDataHtml(data) {
   `
 }
 
-export function writePersonDataExport(printWindow, data) {
-  writeExportDocument(printWindow, buildPersonDataHtml(data))
+export async function writePersonDataExport(printWindow, data) {
+  const logo = await getCompanyLogoDataUrl()
+  writeExportDocument(printWindow, buildPersonDataHtml(data, logo))
 }

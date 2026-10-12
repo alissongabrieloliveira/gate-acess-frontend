@@ -1,3 +1,4 @@
+import { printWhenReady } from './company'
 import { formatCnpj } from './format'
 
 // Base das exportações de dados do titular (LGPD — pessoas e usuários): mesmo
@@ -40,6 +41,7 @@ export function keyValueTable(pairs) {
 
 export const DOCUMENT_STYLES = `
   body { font-family: system-ui, sans-serif; padding: 24px; color: #1c2e24; font-size: 12px; }
+  img.company-logo { display: block; max-height: 48px; max-width: 160px; object-fit: contain; margin-bottom: 10px; }
   h1 { font-size: 18px; margin: 0 0 2px; }
   h2 { font-size: 14px; margin: 22px 0 8px; }
   p { margin: 0 0 6px; }
@@ -89,9 +91,11 @@ export const HISTORY_COLUMNS = [
   { label: 'Campos', value: (h) => h.fields.map((f) => FIELD_LABELS[f] ?? f).join(', ') || null },
 ]
 
-export function documentHeader(title, data) {
+// `logo`: data URL da logo da empresa (lib/company#getCompanyLogoDataUrl) ou null.
+export function documentHeader(title, data, logo = null) {
   const { company } = data
   return `
+    ${logo ? `<img class="company-logo" src="${logo}" alt="" />` : ''}
     <h1>${escapeHtml(title)}</h1>
     <p class="subtitle">
       ${escapeHtml(company.corporateName)}${company.cnpj ? ` — CNPJ ${escapeHtml(formatCnpj(company.cnpj))}` : ''} ·
@@ -108,13 +112,6 @@ export function writeExportDocument(printWindow, html) {
   if (!printWindow) return
   printWindow.document.write(html)
   printWindow.document.close()
-  printWindow.focus()
-  // Espera a foto (URL assinada) carregar antes de abrir o diálogo de impressão.
-  const img = printWindow.document.querySelector('img')
-  if (img && !img.complete) {
-    img.addEventListener('load', () => printWindow.print(), { once: true })
-    img.addEventListener('error', () => printWindow.print(), { once: true })
-  } else {
-    printWindow.print()
-  }
+  // Espera a foto (URL assinada) e a logo carregarem antes de imprimir.
+  printWhenReady(printWindow)
 }

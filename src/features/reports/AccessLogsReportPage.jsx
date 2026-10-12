@@ -100,7 +100,7 @@ export default function AccessLogsReportPage() {
       if (from) filterParts.push(`De: ${new Date(from).toLocaleDateString('pt-BR')}`)
       if (to) filterParts.push(`Até: ${new Date(to).toLocaleDateString('pt-BR')}`)
       if (debouncedSearch.trim()) filterParts.push(`Busca: "${debouncedSearch.trim()}"`)
-      writeReportPdf({
+      await writeReportPdf({
         printWindow,
         title: 'Relatório de Acessos',
         subtitle: filterParts.length ? filterParts.join(' · ') : 'Todos os registros',

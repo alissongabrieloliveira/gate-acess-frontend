@@ -1,3 +1,5 @@
+import { getCompanyLogoDataUrl, printWhenReady } from '../../lib/company'
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -23,8 +25,11 @@ export function openReportPrintWindow() {
 
 // Coluna com `total: (rows) => texto` ganha uma linha de total no rodapé da
 // tabela (as demais células ficam vazias; a primeira mostra "Total").
-export function writeReportPdf({ printWindow, title, subtitle, columns, rows }) {
+// Assíncrona por causa da logo da empresa (cabeçalho) — o chamador já reservou
+// a janela antes do primeiro await (openReportPrintWindow).
+export async function writeReportPdf({ printWindow, title, subtitle, columns, rows }) {
   if (!printWindow) return
+  const logo = await getCompanyLogoDataUrl()
 
   const head = columns.map((col) => `<th>${escapeHtml(col.label)}</th>`).join('')
   const body = rows
@@ -45,8 +50,10 @@ export function writeReportPdf({ printWindow, title, subtitle, columns, rows }) 
         <title>${escapeHtml(title)}</title>
         <style>
           body { font-family: system-ui, sans-serif; padding: 24px; color: #1c2e24; }
+          .header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+          .header img { max-height: 48px; max-width: 160px; object-fit: contain; }
           h1 { font-size: 18px; margin: 0 0 2px; }
-          p.subtitle { font-size: 12px; color: #52655a; margin: 0 0 16px; }
+          p.subtitle { font-size: 12px; color: #52655a; margin: 0; }
           table { width: 100%; border-collapse: collapse; font-size: 11px; }
           th, td { border: 1px solid #d5e0dc; padding: 6px 8px; text-align: left; white-space: nowrap; }
           th { background: #eef3f0; font-weight: 600; }
@@ -58,8 +65,13 @@ export function writeReportPdf({ printWindow, title, subtitle, columns, rows }) 
         </style>
       </head>
       <body>
-        <h1>${escapeHtml(title)}</h1>
-        <p class="subtitle">${escapeHtml(subtitle)}</p>
+        <div class="header">
+          ${logo ? `<img src="${logo}" alt="" />` : ''}
+          <div>
+            <h1>${escapeHtml(title)}</h1>
+            <p class="subtitle">${escapeHtml(subtitle)}</p>
+          </div>
+        </div>
         <table>
           <thead><tr>${head}</tr></thead>
           <tbody>${body || `<tr><td colspan="${columns.length}">Nenhum registro encontrado.</td></tr>`}</tbody>
@@ -70,6 +82,5 @@ export function writeReportPdf({ printWindow, title, subtitle, columns, rows }) 
     </html>
   `)
   printWindow.document.close()
-  printWindow.focus()
-  printWindow.print()
+  printWhenReady(printWindow)
 }

@@ -1,16 +1,18 @@
-import { Building2, FileDown, Lock, Pencil, User } from 'lucide-react'
+import { Building2, FileDown, ImageIcon, Lock, Pencil, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import SuggestionsDropdown from '../../components/SuggestionsDropdown'
 import { formatCityLabel, useCitySearch } from '../../hooks/useCitySearch'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
+import { clearCompanyCache } from '../../lib/company'
 import { getErrorMessage } from '../../lib/errors'
 import { openExportWindow } from '../../lib/exportDocument'
 import { formatCnpj, formatCpf, formatPhone, isValidCnpj, isValidCpf } from '../../lib/format'
 import { RULES } from '../../lib/rules'
 import { formatPersonName, handleNameChange } from '../../lib/nameCase'
 import { writeUserDataExport } from '../users/exportUserData'
+import CompanyLogoField from './CompanyLogoField'
 import { useSettingsData } from './useSettingsData'
 
 const inputClass =
@@ -100,7 +102,7 @@ export default function SettingsPage() {
     setIsExporting(true)
     try {
       const { data } = await api.get(`/users/${profile.id}/data-export`)
-      writeUserDataExport(printWindow, data)
+      await writeUserDataExport(printWindow, data)
     } catch (err) {
       printWindow.close()
       setExportError(getErrorMessage(err, 'Não foi possível exportar seus dados.'))
@@ -230,6 +232,8 @@ export default function SettingsPage() {
         contactPhone: contactPhone.replace(/\D/g, '') || null,
         privacyContact: privacyContact.trim() || null,
       })
+      // Recibo/relatórios guardam a empresa em cache (lib/company).
+      clearCompanyCache()
       await refetch()
       setCompanySuccess(true)
       setIsEditingCompany(false)
@@ -299,6 +303,9 @@ export default function SettingsPage() {
           pela metade. Abaixo de `lg` volta a empilhar (mesmo critério do
           resto do app). */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+        {/* Coluna da esquerda: perfil + logo (a logo saiu de "Dados da
+            Empresa", que já era a coluna mais alta e forçava scroll). */}
+        <div className="flex flex-1 flex-col gap-3">
         {profile && (
           <form
             onSubmit={handleSubmit}
@@ -428,6 +435,20 @@ export default function SettingsPage() {
           </form>
         )}
 
+        {company && (
+          <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <CardHeader
+              icon={<ImageIcon className="size-4 text-ink" strokeWidth={1.75} />}
+              title="Logo da Empresa"
+              subtitle={
+                isAdmin ? 'Sai no recibo de entrada, nos relatórios em PDF e na exportação de dados.' : 'Edição restrita a administradores.'
+              }
+            />
+            <CompanyLogoField logoUrl={company.logo_url} canEdit={isAdmin} onChanged={refetch} />
+          </div>
+        )}
+        </div>
+
         {company && !isAdmin && (
           <div className="flex flex-1 flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <CardHeader
@@ -518,25 +539,16 @@ export default function SettingsPage() {
                   className={inputClass}
                 />
               </div>
-              <div className="flex flex-col gap-1">
-                <label className={labelClass}>CEP</label>
-                <input
-                  value={zipCode}
-                  onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                  disabled={!isEditingCompany}
-                  className={inputClass}
-                />
-              </div>
               {/* Impresso no recibo de acesso: canal pra o visitante pedir
                   acesso, correção ou exclusão dos dados (LGPD). Vazio = o
                   recibo usa o e-mail/telefone de contato acima. */}
-              <div className="col-span-2 flex flex-col gap-1">
+              <div className="flex flex-col gap-1">
                 <label className={labelClass}>Contato de Privacidade (LGPD)</label>
                 <input
                   value={privacyContact}
                   onChange={(e) => setPrivacyContact(e.target.value)}
                   maxLength={255}
-                  placeholder="Ex.: privacidade@empresa.com ou (62) 3333-0000 — aparece no recibo"
+                  placeholder="E-mail ou telefone — sai no recibo"
                   disabled={!isEditingCompany}
                   className={inputClass}
                 />
@@ -547,8 +559,9 @@ export default function SettingsPage() {
 
             <div className="flex flex-col gap-3">
               <p className="text-[13px] font-bold text-ink">Endereço</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
+              {/* 3 colunas (com o CEP aqui) — a tela cabe sem scroll. */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2 flex flex-col gap-1">
                   <label className={labelClass}>Rua</label>
                   <input
                     value={street}
@@ -584,7 +597,16 @@ export default function SettingsPage() {
                     className={inputClass}
                   />
                 </div>
-                <div className="relative flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>CEP</label>
+                  <input
+                    value={zipCode}
+                    onChange={(e) => setZipCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    disabled={!isEditingCompany}
+                    className={inputClass}
+                  />
+                </div>
+                <div className="relative col-span-2 flex flex-col gap-1">
                   <label className={labelClass}>Cidade</label>
                   <input
                     ref={cityInputRef}

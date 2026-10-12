@@ -40,7 +40,7 @@ export default function SectorVisitsReportPage() {
       if (from) filterParts.push(`De: ${new Date(from).toLocaleDateString('pt-BR')}`)
       if (to) filterParts.push(`Até: ${new Date(to).toLocaleDateString('pt-BR')}`)
       filterParts.push(`Total de visitas: ${total}`)
-      writeReportPdf({
+      await writeReportPdf({
         printWindow,
         title: 'Relatório de Visitas por Setor',
         subtitle: filterParts.join(' · '),
