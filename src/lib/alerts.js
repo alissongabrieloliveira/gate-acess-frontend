@@ -1,3 +1,5 @@
+import { formatPlateInput } from './format'
+
 // Monta a lista exibida no sininho a partir
 // de GET /dashboard/alerts (calculados na hora pelo backend — o alerta some
 // sozinho quando o problema é resolvido).
@@ -26,7 +28,7 @@ function formatDateTime(value) {
 
 function vehicleLabel(vehicle) {
   if (!vehicle) return 'Veículo não encontrado'
-  const plate = vehicle.licensePlate || 'Sem placa'
+  const plate = vehicle.licensePlate ? formatPlateInput(vehicle.licensePlate) : 'Sem placa'
   return vehicle.identificationCode ? `${plate} (Nº ${vehicle.identificationCode})` : plate
 }
 

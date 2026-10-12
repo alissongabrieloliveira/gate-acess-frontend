@@ -59,8 +59,8 @@ describe('alertas', () => {
       { now },
     )
     expect(items[0]).toMatchObject({ title: 'Ana dentro há 13h', to: '/access-control/7', group: 'people' })
-    expect(items[0].description).toContain('ABC1D23')
-    expect(items[1]).toMatchObject({ title: 'XYZ9A88 (Nº 701) na rua há 30h', to: '/fleet/9', group: 'fleet' })
+    expect(items[0].description).toContain('ABC-1D23')
+    expect(items[1]).toMatchObject({ title: 'XYZ-9A88 (Nº 701) na rua há 30h', to: '/fleet/9', group: 'fleet' })
     expect(items[1].description).toContain('Beto · Goiânia - GO')
   })
 
@@ -94,7 +94,7 @@ describe('alertas', () => {
     )
     expect(items[0]).toMatchObject({ title: 'Lançamento retroativo: Ana', to: '/access-control/3' })
     expect(items[0].description).toMatch(/^Entrada e saída · por Carla em .* · Motivo: Esqueceu$/)
-    expect(items[1]).toMatchObject({ title: 'Lançamento retroativo: XYZ9A88', to: '/fleet/4' })
+    expect(items[1]).toMatchObject({ title: 'Lançamento retroativo: XYZ-9A88', to: '/fleet/4' })
     expect(items[1].description).toMatch(/^Retorno · por usuário removido em/)
   })
 })
