@@ -1,4 +1,5 @@
-import { Bell, ChevronDown, Search, User } from 'lucide-react'
+import { ChevronDown, Search, User } from 'lucide-react'
+import AlertsBell from './AlertsBell'
 
 export function TopBarControls({ gates, selectedGateId, onGateChange }) {
   return (
@@ -30,14 +31,7 @@ export function TopBarControls({ gates, selectedGateId, onGateChange }) {
         />
       </div>
 
-      {/* Sem backend de notificações — sem indicador de "não lido" fabricado. */}
-      <button
-        type="button"
-        title="Notificações"
-        className="flex size-[38px] items-center justify-center rounded-[10px] border border-gray-200 bg-white text-muted shadow-sm hover:bg-gray-50"
-      >
-        <Bell className="size-[18px]" strokeWidth={1.75} />
-      </button>
+      <AlertsBell />
 
       <div className="flex size-[38px] items-center justify-center rounded-full bg-gray-100 text-muted">
         <User className="size-[18px]" strokeWidth={1.75} />

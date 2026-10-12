@@ -90,7 +90,7 @@ export function useDashboardData() {
             vehiclesOnTripCount: onTripRes.data.data.length,
             peopleTotal: peopleRes.data.pagination.total,
             newPeopleThisWeek: summary.newPeople,
-            alertsCount: summary.blockedPeople + summary.blockedVehicles,
+            blockedCount: summary.blockedPeople + summary.blockedVehicles,
             accessesByDay: summary.accessesByDay,
             gatesById: byId(gatesList),
             gatesList,

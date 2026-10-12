@@ -1,6 +1,6 @@
 import { Eye, LogOut, Plus, Printer, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { RetroactiveBadge } from '../../components/RetroactiveFields'
 import TopBar from '../../components/TopBar'
 import { formatCpf, formatPlateInput } from '../../lib/format'
@@ -36,7 +36,10 @@ function formatDateTime(value) {
 }
 
 export default function AccessControlPage() {
-  const [statusFilter, setStatusFilter] = useState('ACTIVE')
+  // ?status=all abre direto na aba "Todos" (link "Ver todos os registros" do
+  // Dashboard); sem parâmetro continua em "Dentro da Empresa".
+  const [searchParams] = useSearchParams()
+  const [statusFilter, setStatusFilter] = useState(() => (searchParams.get('status') === 'all' ? null : 'ACTIVE'))
   const [page, setPage] = useState(1)
   const [selectedGateId, setSelectedGateId] = useState('all')
   const [searchText, setSearchText] = useState('')

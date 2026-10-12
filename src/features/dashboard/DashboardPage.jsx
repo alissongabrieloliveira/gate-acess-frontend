@@ -1,5 +1,6 @@
-import { AlertTriangle, ArrowUpRight, Truck, Users } from 'lucide-react'
+import { ArrowUpRight, Ban, Truck, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import TopBar from '../../components/TopBar'
 import {
   addDays,
@@ -110,14 +111,10 @@ export default function DashboardPage() {
           title="Novos cadastros nos últimos 7 dias"
         />
         <KpiCard
-          label="Alertas"
-          value={data.alertsCount}
-          icon={<AlertTriangle className="size-[18px] text-brand" strokeWidth={2} />}
-          badge={
-            data.alertsCount > 0
-              ? { text: 'Crítico', className: 'bg-red-100 text-red-700' }
-              : { text: 'Normal', className: 'bg-green-100 text-green-700' }
-          }
+          label="Bloqueados"
+          value={data.blockedCount}
+          icon={<Ban className="size-[18px] text-brand" strokeWidth={2} />}
+          badge={{ text: 'Pessoas e veículos', className: 'bg-gray-100 text-gray-700' }}
           title="Pessoas e veículos bloqueados"
         />
       </div>
@@ -126,7 +123,9 @@ export default function DashboardPage() {
         <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between border-b border-gray-200 p-5">
             <p className="text-base font-bold text-ink">Últimos Acessos</p>
-            <span className="text-[13px] font-semibold text-brand">Ver todos os registros</span>
+            <Link to="/access-control?status=all" className="text-[13px] font-semibold text-brand hover:underline">
+              Ver todos os registros
+            </Link>
           </div>
           {/* min-w preserva as larguras fixas das colunas (Nome flexível + 320px
               de colunas fixas) em vez de espremê-las até colidir — abaixo disso
@@ -140,14 +139,18 @@ export default function DashboardPage() {
                 <p className="w-[100px]">Placa</p>
                 <p className="w-[100px]">Status</p>
               </div>
-              <div className="flex flex-col">
+              {/* Altura fixa de 5 linhas (RECENT_LOGS_LIMIT, h-16 cada): o card não
+                  encolhe com menos registros nem quando não há nenhum. */}
+              <div className="flex min-h-[320px] flex-col">
                 {recentLogs.length === 0 && (
-                  <p className="px-4 py-6 text-sm text-muted">Nenhum acesso registrado nos últimos 7 dias.</p>
+                  <p className="flex flex-1 items-center justify-center px-4 py-6 text-sm text-muted">
+                    Nenhum acesso registrado nos últimos 7 dias.
+                  </p>
                 )}
                 {recentLogs.map((log) => {
                   const badge = STATUS_BADGES[log.status] ?? { label: log.status, className: 'bg-gray-100 text-gray-700' }
                   return (
-                    <div key={log.id} className="flex items-center border-b border-gray-200 px-4 py-3.5 last:border-b-0">
+                    <div key={log.id} className="flex h-16 shrink-0 items-center border-b border-gray-200 px-4 last:border-b-0">
                       <div className="flex flex-1 flex-col gap-0.5">
                         <p className="truncate text-sm font-semibold text-ink">{log.name}</p>
                         {log.destination && <p className="text-xs text-muted">Destino: {log.destination}</p>}

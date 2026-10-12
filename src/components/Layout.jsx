@@ -1,6 +1,7 @@
 import { Menu, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import { AlertsProvider } from '../lib/alertsContext'
 import Sidebar from './Sidebar'
 
 // Abaixo de `lg` não há espaço pra sidebar fixa de 260px — esse cabeçalho
@@ -31,26 +32,29 @@ export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
-    <div className="flex h-screen items-start bg-canvas font-sans">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+    // Alertas do sininho buscados uma vez para todas as telas.
+    <AlertsProvider>
+      <div className="flex h-screen items-start bg-canvas font-sans">
+        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      {/* Backdrop só existe (e só fecha ao clicar) enquanto a gaveta está
-          aberta — em `lg+` isSidebarOpen nunca chega a virar true (não há
-          botão de abrir visível lá), então isso nunca renderiza no desktop. */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      )}
+        {/* Backdrop só existe (e só fecha ao clicar) enquanto a gaveta está
+            aberta — em `lg+` isSidebarOpen nunca chega a virar true (não há
+            botão de abrir visível lá), então isso nunca renderiza no desktop. */}
+        {isSidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
 
-      <div className="flex h-full flex-1 flex-col overflow-hidden">
-        <MobileTopBar onOpenMenu={() => setIsSidebarOpen(true)} />
-        <main className="h-full flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
-          <Outlet />
-        </main>
+        <div className="flex h-full flex-1 flex-col overflow-hidden">
+          <MobileTopBar onOpenMenu={() => setIsSidebarOpen(true)} />
+          <main className="h-full flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10">
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+    </AlertsProvider>
   )
 }
