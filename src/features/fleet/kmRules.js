@@ -73,3 +73,23 @@ export function displayKmReturn(log) {
   if (!log.returnTime) return '----'
   return log.isKmUnavailable ? 'Não disponível' : '—'
 }
+
+// KM rodado na viagem: retorno − saída. null quando ainda não voltou, falta
+// um dos KMs ou o retorno é menor que a saída (só em dado antigo — hoje o
+// backend exige retorno > saída): nunca mostra distância negativa.
+export function kmDriven(log) {
+  if (log.kmDeparture == null || log.kmReturn == null) return null
+  const distance = log.kmReturn - log.kmDeparture
+  return distance >= 0 ? distance : null
+}
+
+export function displayKmDriven(log) {
+  if (!log.returnTime) return '----'
+  const distance = kmDriven(log)
+  return distance == null ? '—' : formatKm(distance)
+}
+
+// Soma do KM rodado dos registros que têm a distância (os demais não entram).
+export function totalKmDriven(logs) {
+  return logs.reduce((sum, log) => sum + (kmDriven(log) ?? 0), 0)
+}

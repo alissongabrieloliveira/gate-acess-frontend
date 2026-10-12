@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { RetroactiveBadge } from '../../components/RetroactiveFields'
 import { STATUS_BADGES, statusBadge, statusLabel } from '../fleet/fleetStatus'
-import { displayKmDeparture, displayKmReturn } from '../fleet/kmRules'
+import { displayKmDeparture, displayKmDriven, displayKmReturn, formatKm, totalKmDriven } from '../fleet/kmRules'
 import { formatPlateInput } from '../../lib/format'
 import { openReportPrintWindow, writeReportPdf } from './exportReportPdf'
 import { enrichFleetLogReport, fetchAllFleetLogs, PAGE_SIZE, useFleetLogsReportData } from './useFleetLogsReportData'
@@ -45,6 +45,8 @@ const EXPORT_COLUMNS = [
   { label: 'KM de Saída', value: (r) => displayKmDeparture(r) },
   { label: 'Retorno', value: (r) => formatDateTime(r.returnTime) },
   { label: 'KM de Retorno', value: (r) => displayKmReturn(r) },
+  // Total = soma dos registros que voltaram com KM de saída e de retorno.
+  { label: 'KM Rodado', value: (r) => displayKmDriven(r), total: (rows) => `${formatKm(totalKmDriven(rows))} km` },
   { label: 'Status', value: (r) => statusLabel(r) },
   { label: 'Retroativo', value: (r) => (r.isRetroactive ? 'Sim' : '—') },
 ]
@@ -165,11 +167,11 @@ export default function FleetLogsReportPage() {
       )}
 
       <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        {/* min-w preserva as larguras fixas das colunas (1100px = soma delas)
+        {/* min-w preserva as larguras fixas das colunas (1190px = soma delas)
             em vez de espremê-las — abaixo disso a tabela rola na horizontal
             (overflow-x-auto) ao invés de quebrar o layout num tablet. */}
         <div className="overflow-x-auto">
-          <div className="min-w-[1100px]">
+          <div className="min-w-[1190px]">
             <div className="flex justify-between bg-canvas px-5 py-3 text-xs font-bold uppercase text-muted">
               <p className="w-[160px]">Veículo</p>
               <p className="w-[100px] text-center">Identificação</p>
@@ -179,6 +181,7 @@ export default function FleetLogsReportPage() {
               <p className="w-[90px] text-center">KM Saída</p>
               <p className="w-[110px] text-center">Retorno</p>
               <p className="w-[90px] text-center">KM Retorno</p>
+              <p className="w-[90px] text-center">KM Rodado</p>
               <p className="w-[90px] text-center">Status</p>
               <p className="w-[80px] text-center">Detalhe</p>
             </div>
@@ -203,6 +206,7 @@ export default function FleetLogsReportPage() {
                     <p className="w-[90px] text-center text-sm text-gray-700">{displayKmDeparture(log)}</p>
                     <p className="w-[110px] text-center text-sm text-subtle">{formatDateTime(log.returnTime)}</p>
                     <p className="w-[90px] text-center text-sm text-subtle">{displayKmReturn(log)}</p>
+                    <p className="w-[90px] text-center text-sm font-semibold text-gray-700">{displayKmDriven(log)}</p>
                     <div className="flex w-[90px] flex-col items-center justify-center gap-1">
                       <span title={statusLabel(log)} className={`rounded-full px-2.5 py-1 text-xs font-bold ${badge.className}`}>
                         {badge.label}

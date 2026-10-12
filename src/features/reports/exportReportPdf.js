@@ -21,6 +21,8 @@ export function openReportPrintWindow() {
   return window.open('', '_blank', 'width=1000,height=700')
 }
 
+// Coluna com `total: (rows) => texto` ganha uma linha de total no rodapé da
+// tabela (as demais células ficam vazias; a primeira mostra "Total").
 export function writeReportPdf({ printWindow, title, subtitle, columns, rows }) {
   if (!printWindow) return
 
@@ -28,6 +30,12 @@ export function writeReportPdf({ printWindow, title, subtitle, columns, rows }) 
   const body = rows
     .map((row) => `<tr>${columns.map((col) => `<td>${escapeHtml(col.value(row))}</td>`).join('')}</tr>`)
     .join('')
+  const hasTotals = rows.length > 0 && columns.some((col) => col.total)
+  const foot = hasTotals
+    ? `<tfoot><tr>${columns
+        .map((col, index) => `<td>${escapeHtml(col.total ? col.total(rows) : index === 0 ? 'Total' : '')}</td>`)
+        .join('')}</tr></tfoot>`
+    : ''
 
   printWindow.document.write(`
     <!doctype html>
@@ -42,6 +50,7 @@ export function writeReportPdf({ printWindow, title, subtitle, columns, rows }) 
           table { width: 100%; border-collapse: collapse; font-size: 11px; }
           th, td { border: 1px solid #d5e0dc; padding: 6px 8px; text-align: left; white-space: nowrap; }
           th { background: #eef3f0; font-weight: 600; }
+          tfoot td { background: #eef3f0; font-weight: 700; }
           p.footer { margin-top: 16px; font-size: 10px; color: #8a9a91; }
           @media print {
             @page { size: landscape; margin: 14mm; }
@@ -54,6 +63,7 @@ export function writeReportPdf({ printWindow, title, subtitle, columns, rows }) 
         <table>
           <thead><tr>${head}</tr></thead>
           <tbody>${body || `<tr><td colspan="${columns.length}">Nenhum registro encontrado.</td></tr>`}</tbody>
+          ${foot}
         </table>
         <p class="footer">Gerado em ${escapeHtml(new Date().toLocaleString('pt-BR'))} — ${rows.length} registro(s)</p>
       </body>

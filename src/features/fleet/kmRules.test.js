@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_TRIP_KM, checkDepartureKm, checkReturnKm, parseKm } from './kmRules'
+import {
+  MAX_TRIP_KM,
+  checkDepartureKm,
+  checkReturnKm,
+  displayKmDriven,
+  kmDriven,
+  parseKm,
+  totalKmDriven,
+} from './kmRules'
 
 describe('parseKm', () => {
   it('aceita inteiros não-negativos e rejeita o resto', () => {
@@ -60,5 +68,34 @@ describe('checkReturnKm', () => {
       warning: null,
       distance: null,
     })
+  })
+})
+
+describe('KM rodado', () => {
+  const returned = { returnTime: '2026-10-12T15:00:00Z' }
+
+  it('retorno menos saída quando o veículo voltou com os dois KMs', () => {
+    const log = { ...returned, kmDeparture: 152340, kmReturn: 153492 }
+    expect(kmDriven(log)).toBe(1152)
+    expect(displayKmDriven(log)).toBe('1.152')
+  })
+
+  it('na rua -> ----; sem KM ou retorno menor que a saída -> —', () => {
+    expect(displayKmDriven({ kmDeparture: 100, kmReturn: null, returnTime: null })).toBe('----')
+    expect(displayKmDriven({ ...returned, kmDeparture: null, kmReturn: 200 })).toBe('—')
+    expect(displayKmDriven({ ...returned, kmDeparture: 100, kmReturn: null })).toBe('—')
+    expect(kmDriven({ ...returned, kmDeparture: 300, kmReturn: 200 })).toBeNull()
+    expect(displayKmDriven({ ...returned, kmDeparture: 300, kmReturn: 200 })).toBe('—')
+  })
+
+  it('total soma só os registros com distância', () => {
+    const logs = [
+      { ...returned, kmDeparture: 100, kmReturn: 250 },
+      { ...returned, kmDeparture: 1000, kmReturn: 1010 },
+      { kmDeparture: 500, kmReturn: null, returnTime: null },
+      { ...returned, kmDeparture: null, kmReturn: null },
+    ]
+    expect(totalKmDriven(logs)).toBe(160)
+    expect(totalKmDriven([])).toBe(0)
   })
 })
