@@ -38,9 +38,10 @@ export default function AlertsBell() {
   }, [isOpen])
 
   const close = () => setIsOpen(false)
-  // Gateway offline impede o trabalho na hora (cancelas não abrem): número em
-  // vermelho pulsando; os demais alertas ficam em âmbar.
-  const isCritical = items.some((item) => item.group === 'gateway')
+  // Gateway offline (queda) impede o trabalho na hora (cancelas não abrem):
+  // número em vermelho pulsando; os demais alertas — inclusive o gateway
+  // encerrado pelo operador — ficam em âmbar.
+  const isCritical = items.some((item) => item.group === 'gateway' && item.tone === 'danger')
   const labels = groupLabels(thresholds)
   const groups = GROUP_ORDER.map((id) => ({ id, items: items.filter((item) => item.group === id) })).filter(
     (group) => group.items.length,

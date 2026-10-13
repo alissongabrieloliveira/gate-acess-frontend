@@ -48,13 +48,25 @@ export function buildAlertItems(data, { isAdmin = false, now = new Date() } = {}
   if (!data) return []
   const items = []
 
-  if (data.gatewayOffline) {
+  // Encerrado pelo operador (app do gateway fechado no fim do expediente) é
+  // informação, não alarme; queda inesperada continua em vermelho.
+  const gateway = data.gatewayOffline
+  if (gateway?.closedByOperatorAt) {
+    items.push({
+      key: 'gateway',
+      group: 'gateway',
+      tone: 'info',
+      title: 'Gateway das cancelas encerrado',
+      description: `Encerrado pelo operador em ${formatDateTime(gateway.closedByOperatorAt)}. Os botões de cancela voltam a funcionar quando o app do gateway for aberto.`,
+      to: isAdmin ? '/gate-control' : null,
+    })
+  } else if (gateway) {
     items.push({
       key: 'gateway',
       group: 'gateway',
       tone: 'danger',
       title: 'Gateway das cancelas offline',
-      description: `Sem conexão há ${formatElapsed(data.gatewayOffline.offlineSince, now)}. Os botões de cancela não funcionam até ele voltar.`,
+      description: `Sem conexão há ${formatElapsed(gateway.offlineSince, now)}. Os botões de cancela não funcionam até ele voltar.`,
       to: isAdmin ? '/gate-control' : null,
     })
   }

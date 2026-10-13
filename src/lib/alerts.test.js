@@ -38,6 +38,16 @@ describe('alertas', () => {
     expect(buildAlertItems(data, { isAdmin: true, now })[0].to).toBe('/gate-control')
   })
 
+  it('gateway queda = danger; encerrado pelo operador = info com a hora', () => {
+    const drop = buildAlertItems({ ...empty, gatewayOffline: { name: 'Gateway', offlineSince: hoursAgo(1), closedByOperatorAt: null } }, { now })
+    expect(drop[0]).toMatchObject({ tone: 'danger', title: 'Gateway das cancelas offline' })
+
+    const closedAt = hoursAgo(2)
+    const closed = buildAlertItems({ ...empty, gatewayOffline: { name: 'Gateway', offlineSince: closedAt, closedByOperatorAt: closedAt } }, { now })
+    expect(closed[0]).toMatchObject({ key: 'gateway', group: 'gateway', tone: 'info', title: 'Gateway das cancelas encerrado' })
+    expect(closed[0].description).toContain('Encerrado pelo operador em')
+  })
+
   it('pessoa dentro e frota na rua levam ao registro', () => {
     const items = buildAlertItems(
       {
